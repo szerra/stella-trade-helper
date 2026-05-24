@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.4.7
+// @version      1.4.8
 // @description  跑商情報面板：手機 Edge 支援，自動清除誤新增的詳情文字商品，支援 GitHub 自動更新。
 // @author       YourName
 // @homepageURL   https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  console.log('[StellaTrade 1.4.7] 腳本已載入');
+  console.log('[StellaTrade 1.4.8] 腳本已載入');
 
   const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -111,7 +111,7 @@
     {
       port: '潮鏡礁',
       keywords: ['潮鏡', '潮镜'],
-      items: ['潮鏡貝', '礁糖瑪奇朵']
+      items: ['潮鏡貝', '礁糖瑪奇朵', '黑潮摩卡']
     },
     {
       port: '霧燈群島',
@@ -208,48 +208,39 @@
     localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
   }
 
-  function ensureLocalData() {
-    let data = readLocalData();
-
-    if (!data || typeof data !== 'object') {
-      data = getDefaultData();
-      writeLocalData(data);
-      return data;
-    }
-
+  function sanitizeMarketData(rawData) {
+    const data = {};
     const defaults = getDefaultData();
+    let removedCount = 0;
     let changed = false;
 
-    for (const [portName, itemsObj] of Object.entries({ ...data })) {
+    for (const [portName, itemsObj] of Object.entries(rawData || {})) {
       const cleanPort = normalizePort(portName);
-      if (cleanPort !== portName) {
-        data[cleanPort] = Object.assign(data[cleanPort] || {}, itemsObj);
-        delete data[portName];
+      if (!getPortDefByName(cleanPort)) {
+        removedCount++;
         changed = true;
+        continue;
       }
-    }
 
-    for (const [portName, itemsObj] of Object.entries(data)) {
+      if (cleanPort !== portName) changed = true;
+      if (!data[cleanPort]) data[cleanPort] = {};
       if (!itemsObj || typeof itemsObj !== 'object') continue;
 
-      for (const [itemName, info] of Object.entries({ ...itemsObj })) {
+      for (const [itemName, info] of Object.entries(itemsObj || {})) {
         const cleanItem = normalizeItem(itemName);
-        if (cleanItem !== itemName) {
-          itemsObj[cleanItem] = Object.assign(itemsObj[cleanItem] || {}, info);
-          delete itemsObj[itemName];
+        if (cleanItem !== itemName) changed = true;
+
+        if (isInvalidItemName(cleanItem) || !isItemAllowedForPort(cleanPort, cleanItem)) {
+          removedCount++;
           changed = true;
+          continue;
         }
 
-        const finalInfo = itemsObj[cleanItem];
-        if (finalInfo && typeof finalInfo === 'object' && 'updater' in finalInfo) {
-          delete finalInfo.updater;
+        const old = data[cleanPort][cleanItem] || {};
+        data[cleanPort][cleanItem] = Object.assign({}, old, info || {});
+        if (data[cleanPort][cleanItem] && typeof data[cleanPort][cleanItem] === 'object' && 'updater' in data[cleanPort][cleanItem]) {
+          delete data[cleanPort][cleanItem].updater;
           changed = true;
-        }
-
-        if (isInvalidItemName(cleanItem) || !isItemAllowedForPort(portName, cleanItem)) {
-          delete itemsObj[cleanItem];
-          changed = true;
-          console.log('[StellaTrade] 已清除錯誤商品：', portName, cleanItem);
         }
       }
     }
@@ -291,8 +282,27 @@
       }
     }
 
-    if (changed) writeLocalData(data);
-    return data;
+    return { data, changed, removedCount };
+  }
+
+  function ensureLocalData() {
+    let data = readLocalData();
+
+    if (!data || typeof data !== 'object') {
+      data = getDefaultData();
+      writeLocalData(data);
+      return data;
+    }
+
+    const sanitized = sanitizeMarketData(data);
+    if (sanitized.changed) {
+      writeLocalData(sanitized.data);
+      if (sanitized.removedCount > 0) {
+        console.log('[StellaTrade] 已清除本地錯誤商品：', sanitized.removedCount);
+      }
+    }
+
+    return sanitized.data;
   }
 
   function getPageText() {
@@ -735,6 +745,31 @@
     });
   }
 
+  function requestCloudCleanup(cleanedData, removedCount) {
+    if (!removedCount || removedCount <= 0) return;
+
+    safeRequest({
+      method: 'POST',
+      url: GOOGLE_API_URL,
+      data: JSON.stringify({
+        action: 'cleanup_v8',
+        time: getDisplayTime(),
+        data: cleanedData
+      }),
+      headers: { 'Content-Type': 'application/json' },
+      onload(response) {
+        if (response.status === 200) {
+          console.log('[StellaTrade] 已送出雲端清理請求', response.responseText);
+        } else {
+          console.warn('[StellaTrade] 雲端清理請求未完成', response.status, response.responseText);
+        }
+      },
+      onerror(error) {
+        console.warn('[StellaTrade] 雲端清理請求失敗', error);
+      }
+    });
+  }
+
   function parseCloudJsonResponse(response) {
     const text = String(response?.responseText || '').trim();
     if (!text) return { ok: false, message: '雲端沒有回傳資料' };
@@ -770,10 +805,13 @@
 
         try {
           const cloudData = parsed.data;
+          const sanitizedCloud = sanitizeMarketData(cloudData || {});
+          if (sanitizedCloud.removedCount > 0) requestCloudCleanup(sanitizedCloud.data, sanitizedCloud.removedCount);
+
           const localData = ensureLocalData();
           let hasUpdate = false;
 
-          for (const [port, items] of Object.entries(cloudData || {})) {
+          for (const [port, items] of Object.entries(sanitizedCloud.data || {})) {
             const cleanPort = normalizePort(port);
             if (!localData[cleanPort]) localData[cleanPort] = {};
 
@@ -1487,7 +1525,7 @@
     setupPageObserver();
     setupClickUpdateListener();
     setupCloudAutoSync();
-    console.log('[StellaTrade 1.4.6] 面板建立完成，預設顯示小圓球');
+    console.log('[StellaTrade 1.4.8] 面板建立完成，預設顯示小圓球');
   }
 
   function setupResize(panel, resizeHandle) {
