@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.4.6
+// @version      1.4.7
 // @description  跑商情報面板：手機 Edge 支援，自動清除誤新增的詳情文字商品，支援 GitHub 自動更新。
 // @author       YourName
 // @homepageURL   https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  console.log('[StellaTrade 1.4.6] 腳本已載入');
+  console.log('[StellaTrade 1.4.7] 腳本已載入');
 
   const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -151,6 +151,17 @@
     ) || null;
   }
 
+  function getAllowedItemSetForPort(portName) {
+    const def = getPortDefByName(portName);
+    return new Set((def?.items || []).map(normalizeItem));
+  }
+
+  function isItemAllowedForPort(portName, itemName) {
+    const allowed = getAllowedItemSetForPort(portName);
+    if (!allowed.size) return false;
+    return allowed.has(normalizeItem(itemName));
+  }
+
   function normalizeItem(name) {
     const clean = String(name || '').trim();
     return itemNormalize[clean] || clean;
@@ -235,10 +246,10 @@
           changed = true;
         }
 
-        if (isInvalidItemName(cleanItem)) {
+        if (isInvalidItemName(cleanItem) || !isItemAllowedForPort(portName, cleanItem)) {
           delete itemsObj[cleanItem];
           changed = true;
-          console.log('[StellaTrade] 已清除誤新增商品：', portName, cleanItem);
+          console.log('[StellaTrade] 已清除錯誤商品：', portName, cleanItem);
         }
       }
     }
@@ -317,8 +328,7 @@
       if (!isVisibleElement(el)) continue;
 
       const text = el.innerText?.trim();
-      if (!text || text.length > 550) continue;
-      if (isDetailTextBlock(text)) continue;
+      if (!text || text.length > 900) continue;
 
       const stockMatches = text.match(/(?:库存|庫存)\s*[0-9,]+\s*\/\s*[0-9,]+/g) || [];
       if (stockMatches.length !== 1) continue;
@@ -422,10 +432,11 @@
   }
 
   function extractItemNameByKnownList(text, portDef) {
-    const candidates = [...portDef.items, ...getKnownItemNames()];
-    const uniqueCandidates = [...new Set(candidates)];
+    // 嚴格只接受「目前港口本來就會賣」的商品。
+    // 這可以避免出海地圖或其他區塊的港口/商品文字，被寫進錯誤港口。
+    const candidates = [...new Set((portDef?.items || []).map(normalizeItem))];
 
-    for (const item of uniqueCandidates) {
+    for (const item of candidates) {
       const aliases = getAliasesForItem(item);
       if (aliases.some(alias => text.includes(alias))) return normalizeItem(item);
     }
@@ -531,6 +542,49 @@
     return null;
   }
 
+  function scanKnownGoodsFromPageText(portDef) {
+    const pageText = getPageText();
+    const result = {};
+    const allowedItems = [...new Set((portDef?.items || []).map(normalizeItem))];
+    if (!pageText || !allowedItems.length) return [];
+
+    for (const item of allowedItems) {
+      const aliases = getAliasesForItem(item).sort((a, b) => b.length - a.length);
+      const positions = aliases
+        .map(alias => ({ alias, index: pageText.indexOf(alias) }))
+        .filter(hit => hit.index >= 0)
+        .sort((a, b) => a.index - b.index);
+
+      if (!positions.length) continue;
+
+      const start = positions[0].index;
+      let end = Math.min(pageText.length, start + 900);
+
+      for (const otherItem of allowedItems) {
+        if (otherItem === item) continue;
+        for (const alias of getAliasesForItem(otherItem)) {
+          const nextIndex = pageText.indexOf(alias, start + positions[0].alias.length);
+          if (nextIndex > start && nextIndex < end) end = nextIndex;
+        }
+      }
+
+      const slice = pageText.slice(start, end);
+      const stock = extractStock(slice);
+      if (!stock) continue;
+
+      result[item] = {
+        name: item,
+        count: stock.count,
+        max: stock.max,
+        price: extractPrice(slice),
+        restock: extractRestock(slice),
+        rawText: slice
+      };
+    }
+
+    return Object.values(result);
+  }
+
   function scanGoodsFromCurrentPage(portDef) {
     const result = {};
     const elements = [...document.querySelectorAll('div, li, tr, section, article, button')];
@@ -538,10 +592,7 @@
     for (const el of elements) {
       if (!isVisibleElement(el)) continue;
       const text = el.innerText?.trim();
-      if (!text || text.length > 550) continue;
-
-      // 只要商品區塊文字包含「類別 / 类别」或效果詳情，就視為展開說明，不新增商品。
-      if (isDetailTextBlock(text)) continue;
+      if (!text || text.length > 900) continue;
 
       const stockMatches = text.match(/(?:库存|庫存)\s*[0-9,]+\s*\/\s*[0-9,]+/g) || [];
       if (stockMatches.length !== 1) continue;
@@ -549,10 +600,15 @@
       const stock = extractStock(text);
       if (!stock) continue;
 
-      let itemName = extractItemNameByKnownList(text, portDef);
-      if (!itemName) itemName = extractItemNameFallback(text);
+      const knownItemName = extractItemNameByKnownList(text, portDef);
+      let itemName = knownItemName;
+
+      // 有效果、冷卻、類別等詳情文字的商品卡，仍然可以更新「已知商品」。
+      // 但這種區塊不可以用 fallback 自動新增名稱，避免把描述句變商品。
+      if (!itemName && !isDetailTextBlock(text)) itemName = extractItemNameFallback(text);
       if (!itemName) continue;
       if (isInvalidItemName(itemName)) continue;
+      if (!isItemAllowedForPort(portDef.port, itemName)) continue;
 
       const info = {
         name: itemName,
@@ -565,6 +621,13 @@
 
       const old = result[itemName];
       if (!old || text.length < old.rawText.length) result[itemName] = info;
+    }
+
+    // 有些商品卡文字包含「咖啡冷卻」等詳情，個別 DOM 可能被前面的保護略過。
+    // 再用整頁文字補掃一次，只補「目前港口允許的已知商品」。
+    for (const info of scanKnownGoodsFromPageText(portDef)) {
+      const old = result[info.name];
+      if (!old || info.rawText.length < old.rawText.length) result[info.name] = info;
     }
 
     return Object.values(result);
@@ -716,6 +779,8 @@
 
             for (const [item, info] of Object.entries(items || {})) {
               const cleanItem = normalizeItem(item);
+              if (isInvalidItemName(cleanItem) || !isItemAllowedForPort(cleanPort, cleanItem)) continue;
+
               const count = normalizeNumber(info.count ?? info.quantity ?? info.stock ?? info.amount);
               if (count === null) continue;
 
