@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.4.8
+// @version      1.4.9
 // @description  跑商情報面板：手機 Edge 支援，自動清除誤新增的詳情文字商品，支援 GitHub 自動更新。
 // @author       YourName
 // @homepageURL   https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  console.log('[StellaTrade 1.4.8] 腳本已載入');
+  console.log('[StellaTrade 1.4.9] 腳本已載入');
 
   const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -88,6 +88,7 @@
     '潮鏡貝': '潮鏡貝',
     '黑潮摩卡': '黑潮摩卡',
     '幻潮冷萃': '幻潮冷萃',
+    '幻湖冷萃': '幻湖冷萃',
     '珊文签': '珊文簽',
     '珊文簽': '珊文簽'
   };
@@ -121,7 +122,7 @@
     {
       port: '珊文港',
       keywords: ['珊文'],
-      items: ['珊文簽']
+      items: ['珊文簽', '浮夢拿鐵', '幻湖冷萃']
     }
   ];
 
