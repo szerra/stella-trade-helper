@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.4.3-mobile-edge
+// @version      1.4.4
 // @description  跑商情報面板：手機 Edge 支援，自動清除誤新增的詳情文字商品，支援 GitHub 自動更新。
 // @author       YourName
-// @homepageURL   https://github.com/YOUR_GITHUB_USERNAME/stella-trade-helper
-// @updateURL     https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/stella-trade-helper/main/stella_trade_helper.user.js
-// @downloadURL   https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/stella-trade-helper/main/stella_trade_helper.user.js
+// @homepageURL   https://github.com/szerra/stella-trade-helper
+// @updateURL     https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
+// @downloadURL   https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
 // @match        *://stellaidle.dpdns.org/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
