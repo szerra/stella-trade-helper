@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.4.5
+// @version      1.4.6
 // @description  跑商情報面板：手機 Edge 支援，自動清除誤新增的詳情文字商品，支援 GitHub 自動更新。
 // @author       YourName
 // @homepageURL   https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  console.log('[StellaTrade 1.4.5] 腳本已載入');
+  console.log('[StellaTrade 1.4.6] 腳本已載入');
 
   const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -34,11 +34,15 @@
 
   const CLICK_UPDATE_DELAY = 1200;
   const RETURN_UPDATE_COOLDOWN = 2500;
+  const INQUIRY_UPDATE_DELAYS = [900, 1800, 3200, 5200];
+  const CLOUD_AUTO_SYNC_INTERVAL = 45000;
 
   let shadowRoot = null;
   let selectedPort = localStorage.getItem(STORAGE_KEY_SELECTED_PORT) || '星沉灣';
   let syncTimer = null;
+  let cloudAutoSyncTimer = null;
   let clickUpdateTimer = null;
+  let inquiryUpdateTimers = [];
   let lastClickUpdateAt = 0;
   let lastPointerUpdateEventAt = 0;
   let appStarted = false;
@@ -124,6 +128,27 @@
   function normalizePort(name) {
     const clean = String(name || '').trim();
     return portNormalize[clean] || clean;
+  }
+
+  function normalizeCompactText(value) {
+    return String(value || '').replace(/\s+/g, '').trim();
+  }
+
+  function getPortDefByName(name) {
+    const clean = normalizePort(normalizeCompactText(name));
+    return portDefinitions.find(def => def.port === clean) || null;
+  }
+
+  function getPortDefFromShortText(text) {
+    const raw = String(text || '').trim();
+    if (!raw || raw.length > 40) return null;
+
+    const exact = getPortDefByName(raw);
+    if (exact) return exact;
+
+    return portDefinitions.find(def =>
+      def.keywords.some(keyword => raw.includes(keyword))
+    ) || null;
   }
 
   function normalizeItem(name) {
@@ -263,10 +288,76 @@
     return document.body ? document.body.innerText || '' : '';
   }
 
-  function detectCurrentPort(pageText) {
-    return portDefinitions.find(def =>
+  function detectPortFromSelectedControl() {
+    const controls = [...document.querySelectorAll('select')].filter(isVisibleElement);
+
+    for (const select of controls) {
+      const selectedText = select.selectedOptions?.[0]?.textContent || '';
+      const candidates = [
+        selectedText,
+        select.value,
+        select.getAttribute('aria-label') || '',
+        select.getAttribute('title') || ''
+      ];
+
+      for (const candidate of candidates) {
+        const def = getPortDefFromShortText(candidate);
+        if (def) return def;
+      }
+    }
+
+    return null;
+  }
+
+  function detectPortFromVisibleGoods() {
+    const scores = new Map(portDefinitions.map(def => [def.port, 0]));
+    const elements = [...document.querySelectorAll('div, li, tr, section, article')];
+
+    for (const el of elements) {
+      if (!isVisibleElement(el)) continue;
+
+      const text = el.innerText?.trim();
+      if (!text || text.length > 550) continue;
+      if (isDetailTextBlock(text)) continue;
+
+      const stockMatches = text.match(/(?:库存|庫存)\s*[0-9,]+\s*\/\s*[0-9,]+/g) || [];
+      if (stockMatches.length !== 1) continue;
+
+      for (const def of portDefinitions) {
+        for (const item of def.items) {
+          const aliases = getAliasesForItem(item);
+          if (aliases.some(alias => text.includes(alias))) {
+            scores.set(def.port, (scores.get(def.port) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    const ranked = [...scores.entries()]
+      .filter(([, score]) => score > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    if (!ranked.length) return null;
+    if (ranked.length > 1 && ranked[0][1] === ranked[1][1]) return null;
+
+    return portDefinitions.find(def => def.port === ranked[0][0]) || null;
+  }
+
+  function detectPortFromSinglePortText(pageText) {
+    const hits = portDefinitions.filter(def =>
       def.keywords.some(keyword => pageText.includes(keyword))
-    ) || null;
+    );
+
+    // 出海地圖會同時顯示多個港口名；此時不能用整頁文字判斷，避免把打聽庫存寫到錯港。
+    return hits.length === 1 ? hits[0] : null;
+  }
+
+  function detectCurrentPort(pageText) {
+    return (
+      detectPortFromSelectedControl() ||
+      detectPortFromVisibleGoods() ||
+      detectPortFromSinglePortText(pageText)
+    );
   }
 
   function getKnownItemNames() {
@@ -599,8 +690,9 @@
     }
   }
 
-  function fetchCloudData() {
-    setStatus('正在同步雲端資料...');
+  function fetchCloudData(options = {}) {
+    const { silent = false } = options;
+    if (!silent) setStatus('正在同步雲端資料...');
     safeRequest({
       method: 'GET',
       url: `${GOOGLE_API_URL}?_=${Date.now()}`,
@@ -609,7 +701,7 @@
         const parsed = parseCloudJsonResponse(response);
         if (!parsed.ok) {
           console.warn('[StellaTrade] 雲端同步略過：', parsed.message, parsed.preview || '', parsed.error || '');
-          setStatus(parsed.message);
+          if (!silent) setStatus(parsed.message);
           return;
         }
 
@@ -641,20 +733,27 @@
           if (hasUpdate) {
             writeLocalData(localData);
             renderDropdownContent();
-            setStatus('雲端同步完成');
+            if (!silent) setStatus('雲端同步完成');
           } else {
-            setStatus('雲端沒有可更新資料');
+            if (!silent) setStatus('雲端沒有可更新資料');
           }
         } catch (error) {
           console.error('[StellaTrade] 雲端資料套用失敗', error);
-          setStatus('雲端資料套用失敗');
+          if (!silent) setStatus('雲端資料套用失敗');
         }
       },
       onerror(error) {
         console.error('[StellaTrade] 雲端同步失敗', error);
-        setStatus('雲端同步失敗');
+        if (!silent) setStatus('雲端同步失敗');
       }
     });
+  }
+
+  function setupCloudAutoSync() {
+    if (cloudAutoSyncTimer) return;
+    cloudAutoSyncTimer = window.setInterval(() => {
+      fetchCloudData({ silent: true });
+    }, CLOUD_AUTO_SYNC_INTERVAL);
   }
 
   function safeRequest(config) {
@@ -678,6 +777,45 @@
     return text.includes('返航') || text.includes('返回') || text.includes('離港') || text.includes('离港');
   }
 
+  function isInquiryClickTarget(target) {
+    if (!target || !target.closest) return false;
+    const el = target.closest('button, a');
+    if (!el) return false;
+    const text = String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+
+    return (
+      text.includes('打聽') ||
+      text.includes('打听') ||
+      (text.includes('庫存') && (text.includes('魚幣') || text.includes('鱼币') || text.includes('金幣') || text.includes('金币'))) ||
+      (text.includes('查詢') && (text.includes('庫存') || text.includes('库存'))) ||
+      (text.includes('查询') && (text.includes('庫存') || text.includes('库存')))
+    );
+  }
+
+  function scheduleInquiryUpdate() {
+    for (const timer of inquiryUpdateTimers) window.clearTimeout(timer);
+    inquiryUpdateTimers = [];
+
+    const portDef = detectPortFromSelectedControl();
+    setStatus(portDef ? `偵測到打聽 ${portDef.port}，等待庫存資料...` : '偵測到打聽，等待庫存資料...');
+
+    INQUIRY_UPDATE_DELAYS.forEach((delay, index) => {
+      const timer = window.setTimeout(() => {
+        const isLastTry = index === INQUIRY_UPDATE_DELAYS.length - 1;
+        const ok = scrapeCurrentPortData({ upload: true, silent: !isLastTry });
+
+        if (ok) {
+          const currentPort = detectPortFromSelectedControl();
+          setStatus(currentPort ? `打聽資料已更新並上傳：${currentPort.port}` : '打聽資料已更新並上傳');
+        } else if (isLastTry) {
+          setStatus('打聽後沒有讀到商品列，請確認庫存結果已顯示');
+        }
+      }, delay);
+
+      inquiryUpdateTimers.push(timer);
+    });
+  }
+
   function handleAutoUpdateInteraction(event) {
     const host = document.getElementById('stella-shadow-host');
     if (host && event.composedPath && event.composedPath().includes(host)) return;
@@ -692,6 +830,15 @@
       window.clearTimeout(clickUpdateTimer);
       console.log('[StellaTrade] 偵測到返航 / 返回 / 離港，立即更新港口資料');
       scrapeCurrentPortData({ upload: true, silent: true });
+      return;
+    }
+
+    if (isInquiryClickTarget(event.target)) {
+      if (now - lastClickUpdateAt < 700) return;
+      lastClickUpdateAt = now;
+      window.clearTimeout(clickUpdateTimer);
+      console.log('[StellaTrade] 偵測到打聽 / 查庫存，延遲讀取並上傳資料');
+      scheduleInquiryUpdate();
       return;
     }
 
@@ -1213,6 +1360,7 @@
       </div>
       <div class="stella-actions">
         <button id="stella-sync-btn" class="stella-button" type="button">🔄 同步雲端資料</button>
+        <button id="stella-scrape-btn" class="stella-button" type="button">📡 讀取目前打聽結果並上傳</button>
       </div>
       <div id="stella-status">就緒</div>
       <div id="stella-resize-handle" title="調整大小"></div>
@@ -1255,6 +1403,11 @@
       fetchCloudData();
     });
 
+    shadowRoot.getElementById('stella-scrape-btn').addEventListener('click', () => {
+      const ok = scrapeCurrentPortData({ upload: true, silent: false });
+      if (ok) setStatus('目前頁面資料已更新並上傳');
+    });
+
     setupResize(panel, shadowRoot.getElementById('stella-resize-handle'));
     renderDropdownContent();
 
@@ -1268,7 +1421,8 @@
 
     setupPageObserver();
     setupClickUpdateListener();
-    console.log('[StellaTrade 1.4.1-mobile-edge] 面板建立完成，預設顯示小圓球');
+    setupCloudAutoSync();
+    console.log('[StellaTrade 1.4.6] 面板建立完成，預設顯示小圓球');
   }
 
   function setupResize(panel, resizeHandle) {
