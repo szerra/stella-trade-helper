@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.0
-// @description  跑商情報面板：上方入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
+// @version      1.6.1
+// @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.0] 腳本已載入');
+  console.log('[StellaTrade 1.6.1] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -1275,7 +1275,7 @@
 
     const bar = findNativeButtonBar();
     if (bar) {
-      bar.appendChild(button);
+      bar.insertBefore(button, bar.firstElementChild || null);
     } else {
       button.id = 'stella-trade-launcher-fallback';
       document.body.appendChild(button);
@@ -1710,7 +1710,8 @@
       #stella-trade-launcher-fallback {
         position: fixed !important;
         top: 14px !important;
-        right: 18px !important;
+        left: 250px !important;
+        right: auto !important;
         z-index: 2147483000 !important;
       }
 
@@ -2449,6 +2450,12 @@
           left: 12px !important;
           right: 12px !important;
           width: auto !important;
+        }
+
+        #stella-trade-launcher-fallback {
+          top: 12px !important;
+          left: 12px !important;
+          right: auto !important;
         }
       }
     `;
