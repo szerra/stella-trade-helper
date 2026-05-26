@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.5.2
-// @description  跑商情報面板：嵌入目前選中港口詳情卡，顯示貨物情報、航程預估、雲端同步狀態，支援 GitHub 自動更新。
+// @version      1.6.0
+// @description  跑商情報面板：上方入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,10 +18,14 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.5.2] 腳本已載入');
+  console.log('[StellaTrade 1.6.0] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
+
   const DATA_KEY = 'stella_real_market_data';
+  const SEEN_KEY = 'stella_seen_market_data';
+  const SETTINGS_KEY = 'stella_trade_panel_settings';
+  const PANEL_STATE_KEY = 'stella_trade_panel_state';
   const SELECTED_PORT_KEY = 'stella_selected_port';
 
   const CLICK_UPDATE_DELAY = 1200;
@@ -29,9 +33,26 @@
   const CLOUD_PULL_INTERVAL = 90 * 1000;
   const TOAST_COOLDOWN = 60 * 1000;
 
+  const DEFAULT_SETTINGS = {
+    defaultTab: 'changes',
+    showToast: true,
+    showBadge: true,
+    lowStockRatio: 0.15,
+    showTravelEstimate: false,
+  };
+
+  const DEFAULT_PANEL_STATE = {
+    selectedTab: 'changes',
+    selectedPort: '鯨歌港',
+    isOpen: false,
+    sortMode: 'lowStock',
+  };
+
   let clickTimer = null;
   let observerTimer = null;
   let injectTimer = null;
+  let panelRenderTimer = null;
+  let launcherTimer = null;
   let toastTimer = null;
   let lastClickUpdateAt = 0;
   let lastCloudPullAt = 0;
@@ -102,8 +123,15 @@
     { port: '珊文港', keywords: ['珊文'], items: ['珊文簽'] },
   ];
 
-  const normPort = value => portNormalize[String(value || '').trim()] || String(value || '').trim();
-  const normItem = value => itemNormalize[String(value || '').trim()] || String(value || '').trim();
+  function normPort(value) {
+    const clean = String(value || '').trim();
+    return portNormalize[clean] || clean;
+  }
+
+  function normItem(value) {
+    const clean = String(value || '').trim();
+    return itemNormalize[clean] || clean;
+  }
 
   function num(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -118,6 +146,26 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value || {}));
+  }
+
+  function readJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return cloneJson(fallback);
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : cloneJson(fallback);
+    } catch (error) {
+      console.warn('[StellaTrade] localStorage 讀取失敗：', key, error);
+      return cloneJson(fallback);
+    }
+  }
+
+  function writeJson(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
   function nowText() {
@@ -146,17 +194,35 @@
   }
 
   function readData() {
-    try {
-      const raw = localStorage.getItem(DATA_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (error) {
-      console.warn('[StellaTrade] 本地資料讀取失敗', error);
-      return null;
-    }
+    return readJson(DATA_KEY, null);
   }
 
   function writeData(data) {
-    localStorage.setItem(DATA_KEY, JSON.stringify(data));
+    writeJson(DATA_KEY, data);
+  }
+
+  function readSeenData() {
+    return readJson(SEEN_KEY, null);
+  }
+
+  function writeSeenData(data) {
+    writeJson(SEEN_KEY, cleanMarketDataForCompare(data));
+  }
+
+  function readSettings() {
+    return Object.assign({}, DEFAULT_SETTINGS, readJson(SETTINGS_KEY, DEFAULT_SETTINGS));
+  }
+
+  function writeSettings(settings) {
+    writeJson(SETTINGS_KEY, Object.assign({}, DEFAULT_SETTINGS, settings || {}));
+  }
+
+  function readPanelState() {
+    return Object.assign({}, DEFAULT_PANEL_STATE, readJson(PANEL_STATE_KEY, DEFAULT_PANEL_STATE));
+  }
+
+  function writePanelState(state) {
+    writeJson(PANEL_STATE_KEY, Object.assign({}, DEFAULT_PANEL_STATE, state || {}));
   }
 
   function isInvalidItemName(name) {
@@ -218,6 +284,33 @@
       t.includes('合計') ||
       t.includes('总计')
     );
+  }
+
+  function cleanMarketDataForCompare(data) {
+    const cleaned = {};
+    const source = data && typeof data === 'object' ? data : {};
+
+    for (const [rawPort, items] of Object.entries(source)) {
+      const port = normPort(rawPort);
+      if (!items || typeof items !== 'object') continue;
+      if (!cleaned[port]) cleaned[port] = {};
+
+      for (const [rawItem, info] of Object.entries(items)) {
+        const item = normItem(rawItem);
+        if (isInvalidItemName(item)) continue;
+        const safe = info && typeof info === 'object' ? info : {};
+        const count = num(safe.count ?? safe.quantity ?? safe.stock ?? safe.amount);
+        cleaned[port][item] = {
+          count: count ?? 0,
+          max: num(safe.max),
+          price: safe.price || '-',
+          restock: safe.restockTime || safe.nextRestock || safe.restock || '-',
+          time: safe.time || '未知'
+        };
+      }
+    }
+
+    return cleaned;
   }
 
   function ensureData() {
@@ -287,8 +380,17 @@
     return data;
   }
 
-  function pageText() {
-    return document.body ? document.body.innerText || '' : '';
+  function initializeSeenIfMissing() {
+    const seen = readSeenData();
+    if (seen && Object.keys(seen).length) return;
+    writeSeenData(ensureData());
+  }
+
+  function getCleanPageText() {
+    if (!document.body) return '';
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-sync-toast, .stella-detail-goods').forEach(node => node.remove());
+    return clone.innerText || '';
   }
 
   function detectCurrentPort(text) {
@@ -374,10 +476,7 @@
     const beforePrice = text.split(/(?:價格|价格|售價|售价|單價|单价|[0-9,]+\s*(?:金币|金幣|鱼币|魚幣|幣|币))/)[0];
     const compact = beforePrice.replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    if (compact.length >= 2 && compact.length <= 16 && !isInvalidItemName(compact)) {
-      return normItem(compact);
-    }
-
+    if (compact.length >= 2 && compact.length <= 16 && !isInvalidItemName(compact)) return normItem(compact);
     return null;
   }
 
@@ -387,6 +486,8 @@
 
     for (const el of elements) {
       if (!visible(el)) continue;
+      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-sync-toast, .stella-detail-goods')) continue;
+
       const text = el.innerText?.trim();
       if (!text || text.length > 900) continue;
       if (isDetailTextBlock(text)) continue;
@@ -428,7 +529,7 @@
   }
 
   function scrapeCurrentVisibleData({ upload = true, silent = true } = {}) {
-    const text = pageText();
+    const text = getCleanPageText();
     if (isTavernPage(text)) return false;
 
     const portDef = detectCurrentPort(text);
@@ -483,9 +584,10 @@
     writeData(data);
     localStorage.setItem(SELECTED_PORT_KEY, portDef.port);
     scheduleInject();
+    schedulePanelRender();
+    scheduleLauncherUpdate();
 
     if (upload && uploadGoods.length) uploadToCloud(portDef.port, time, uploadGoods);
-
     if (changed > 0) console.log(`[StellaTrade] 已更新 ${portDef.port}：${changed} 項商品`);
     return true;
   }
@@ -494,6 +596,8 @@
     syncState.ok = true;
     syncState.lastSuccessAt = Date.now();
     scheduleInject();
+    schedulePanelRender();
+    scheduleLauncherUpdate();
   }
 
   function markSyncFailure(type = 'sync', detail = '') {
@@ -501,8 +605,9 @@
     syncState.lastFailureAt = Date.now();
     console.warn('[StellaTrade] 雲端同步失敗：', type, detail || '');
 
+    const settings = readSettings();
     const now = Date.now();
-    if (now - lastToastAt >= TOAST_COOLDOWN) {
+    if (settings.showToast && now - lastToastAt >= TOAST_COOLDOWN) {
       lastToastAt = now;
       if (type === 'upload') {
         showSyncToast('⚠️ 上傳雲端失敗', '資料目前只保存在本機。請開啟梯子後重新整理，或等待下次自動同步。');
@@ -512,6 +617,8 @@
     }
 
     scheduleInject();
+    schedulePanelRender();
+    scheduleLauncherUpdate();
   }
 
   function parseCloudJsonResponse(response) {
@@ -533,12 +640,7 @@
     request({
       method: 'POST',
       url: API_URL,
-      data: JSON.stringify({
-        action: 'update_v7',
-        port: normPort(port),
-        time,
-        goods
-      }),
+      data: JSON.stringify({ action: 'update_v7', port: normPort(port), time, goods }),
       headers: { 'Content-Type': 'application/json' },
       onload(response) {
         if (response.status !== 200) {
@@ -629,6 +731,8 @@
           }
 
           scheduleInject();
+          schedulePanelRender();
+          scheduleLauncherUpdate();
         } catch (error) {
           markSyncFailure('download', error);
         }
@@ -671,6 +775,88 @@
     }, 10000);
   }
 
+  function currentAndSeen() {
+    const current = cleanMarketDataForCompare(ensureData());
+    let seen = readSeenData();
+    if (!seen || !Object.keys(seen).length) {
+      seen = cloneJson(current);
+      writeSeenData(seen);
+    } else {
+      seen = cleanMarketDataForCompare(seen);
+    }
+    return { current, seen };
+  }
+
+  function compareMarketData(current, seen) {
+    const changes = [];
+    const portNames = new Set([...Object.keys(current || {}), ...Object.keys(seen || {})]);
+
+    for (const port of portNames) {
+      const currentItems = current[port] || {};
+      const seenItems = seen[port] || {};
+      const itemNames = new Set([...Object.keys(currentItems), ...Object.keys(seenItems)]);
+      const itemChanges = [];
+
+      for (const item of itemNames) {
+        const nowInfo = currentItems[item];
+        const oldInfo = seenItems[item];
+
+        if (!oldInfo && nowInfo) {
+          itemChanges.push({ type: 'new', item, oldInfo: null, newInfo: nowInfo });
+          continue;
+        }
+
+        if (oldInfo && !nowInfo) {
+          itemChanges.push({ type: 'removed', item, oldInfo, newInfo: null });
+          continue;
+        }
+
+        const oldCount = Number(oldInfo.count ?? 0);
+        const newCount = Number(nowInfo.count ?? 0);
+        const oldMax = oldInfo.max ?? null;
+        const newMax = nowInfo.max ?? null;
+        const oldPrice = String(oldInfo.price ?? '-');
+        const newPrice = String(nowInfo.price ?? '-');
+        const oldRestock = String(oldInfo.restock ?? '-');
+        const newRestock = String(nowInfo.restock ?? '-');
+
+        if (oldCount !== newCount || oldMax !== newMax || oldPrice !== newPrice || oldRestock !== newRestock) {
+          itemChanges.push({ type: 'changed', item, oldInfo, newInfo: nowInfo, delta: newCount - oldCount });
+        }
+      }
+
+      if (itemChanges.length) changes.push({ port, items: itemChanges });
+    }
+
+    return changes;
+  }
+
+  function totalChangeCount(changes) {
+    return changes.reduce((sum, port) => sum + port.items.length, 0);
+  }
+
+  function lowStock(info, settings = readSettings()) {
+    const count = Number(info?.count ?? 0);
+    const max = Number(info?.max ?? 0);
+    if (max > 0) return count / max <= Number(settings.lowStockRatio || 0.15);
+    return count <= 5;
+  }
+
+  function latestTimeForPort(items) {
+    const times = Object.values(items || {})
+      .map(info => String(info.time || '').trim())
+      .filter(t => t && t !== '-' && t !== '尚未更新' && t !== '未知');
+    if (!times.length) return '尚未更新';
+    times.sort();
+    return times[times.length - 1];
+  }
+
+  function itemStockText(info) {
+    const count = Number(info?.count || 0);
+    const max = Number(info?.max || 0);
+    return max > 0 ? `${count}/${max}` : `${count}`;
+  }
+
   function stockColor(count, max) {
     if (max && max > 0) {
       const ratio = count / max;
@@ -681,6 +867,453 @@
     if (count <= 5) return '#ff6b6b';
     if (count <= 10) return '#ffd166';
     return '#72f0b2';
+  }
+
+  function renderSyncStatus(compact = false) {
+    if (syncState.ok === true) {
+      const time = syncState.lastSuccessAt ? `　最後同步 ${timeOnly(syncState.lastSuccessAt)}` : '';
+      return `<div class="stella-sync-status stella-sync-ok"><span>雲端同步：正常${escapeHtml(time)}</span></div>`;
+    }
+    if (syncState.ok === false) {
+      const time = syncState.lastFailureAt ? `　${timeOnly(syncState.lastFailureAt)}` : '';
+      const prefix = compact ? '同步失敗' : '雲端同步：失敗';
+      return `<div class="stella-sync-status stella-sync-fail"><span>${prefix}${escapeHtml(time)}　請開啟梯子同步</span></div>`;
+    }
+    return `<div class="stella-sync-status stella-sync-wait"><span>雲端同步：確認中</span></div>`;
+  }
+
+  function renderChangesTab(changes) {
+    if (!changes.length) {
+      return `
+        <div class="stella-empty-state">
+          <div class="stella-empty-icon">✓</div>
+          <div class="stella-empty-title">目前沒有新的貨物變化</div>
+          <div class="stella-empty-sub">同步後若有港口商品變化，會顯示在這裡。</div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="stella-panel-toolbar">
+        <div class="stella-panel-hint">自上次標記已讀後，共 ${totalChangeCount(changes)} 項變化。</div>
+        <button class="stella-small-btn stella-read-btn" data-stella-action="mark-read">標記為已讀</button>
+      </div>
+      <div class="stella-change-list">
+        ${changes.map(portChange => `
+          <section class="stella-change-card">
+            <div class="stella-change-port">${escapeHtml(portChange.port)}</div>
+            <div class="stella-change-items">
+              ${portChange.items.map(change => renderChangeItem(change)).join('')}
+            </div>
+          </section>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderChangeItem(change) {
+    const item = escapeHtml(change.item);
+
+    if (change.type === 'new') {
+      const info = change.newInfo;
+      return `
+        <div class="stella-change-row">
+          <span class="stella-change-name">${item}</span>
+          <span class="stella-change-pill stella-change-up">新增商品</span>
+          <span class="stella-change-stock">${escapeHtml(itemStockText(info))}</span>
+          <span class="stella-change-price">${escapeHtml(info.price || '-')} 魚幣</span>
+        </div>
+      `;
+    }
+
+    if (change.type === 'removed') {
+      const info = change.oldInfo;
+      return `
+        <div class="stella-change-row">
+          <span class="stella-change-name">${item}</span>
+          <span class="stella-change-pill stella-change-muted">商品消失</span>
+          <span class="stella-change-stock">原 ${escapeHtml(itemStockText(info))}</span>
+          <span class="stella-change-price">${escapeHtml(info.price || '-')} 魚幣</span>
+        </div>
+      `;
+    }
+
+    const oldInfo = change.oldInfo;
+    const newInfo = change.newInfo;
+    const delta = Number(change.delta || 0);
+    const deltaClass = delta > 0 ? 'stella-change-up' : delta < 0 ? 'stella-change-down' : 'stella-change-neutral';
+    const deltaText = delta > 0 ? `+${delta}` : String(delta);
+    const priceChanged = String(oldInfo.price ?? '-') !== String(newInfo.price ?? '-');
+    const restockChanged = String(oldInfo.restock ?? '-') !== String(newInfo.restock ?? '-');
+
+    return `
+      <div class="stella-change-row">
+        <span class="stella-change-name">${item}</span>
+        <span class="stella-change-stock">${escapeHtml(itemStockText(oldInfo))} → ${escapeHtml(itemStockText(newInfo))}</span>
+        <span class="stella-change-pill ${deltaClass}">${escapeHtml(deltaText)}</span>
+        ${priceChanged ? `<span class="stella-change-pill stella-change-price-diff">${escapeHtml(oldInfo.price || '-')} → ${escapeHtml(newInfo.price || '-')}</span>` : ''}
+        ${restockChanged ? `<span class="stella-change-pill stella-change-restock">補貨變化</span>` : ''}
+      </div>
+    `;
+  }
+
+  function renderOverviewTab(current, changes) {
+    const settings = readSettings();
+    const changeMap = new Map(changes.map(c => [c.port, c.items.length]));
+
+    return `
+      <div class="stella-overview-grid">
+        ${ports.map(def => {
+          const items = current[def.port] || {};
+          const entries = Object.entries(items).filter(([name]) => !isInvalidItemName(name));
+          const lowCount = entries.filter(([, info]) => lowStock(info, settings)).length;
+          const changedCount = changeMap.get(def.port) || 0;
+          const latest = latestTimeForPort(items);
+
+          return `
+            <button class="stella-overview-card ${changedCount ? 'stella-overview-changed' : ''}" data-stella-action="select-port" data-port="${escapeHtml(def.port)}">
+              <div class="stella-overview-name">${escapeHtml(def.port)}</div>
+              <div class="stella-overview-meta">${entries.length} 項商品</div>
+              <div class="stella-overview-line">最後更新：${escapeHtml(latest)}</div>
+              <div class="stella-overview-badges">
+                <span class="${lowCount ? 'stella-badge-warn' : 'stella-badge-ok'}">低庫存 ${lowCount}</span>
+                ${changedCount ? `<span class="stella-badge-change">變化 ${changedCount}</span>` : '<span class="stella-badge-muted">無變化</span>'}
+              </div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function sortedItemsForPort(items, sortMode, settings) {
+    const entries = Object.entries(items || {}).filter(([name]) => !isInvalidItemName(name));
+
+    return entries.sort((a, b) => {
+      const [nameA, infoA] = a;
+      const [nameB, infoB] = b;
+
+      if (sortMode === 'name') return nameA.localeCompare(nameB, 'zh-Hant');
+
+      if (sortMode === 'price') {
+        const pa = num(infoA.price) ?? Number.MAX_SAFE_INTEGER;
+        const pb = num(infoB.price) ?? Number.MAX_SAFE_INTEGER;
+        return pa - pb || nameA.localeCompare(nameB, 'zh-Hant');
+      }
+
+      if (sortMode === 'time') {
+        return String(infoB.time || '').localeCompare(String(infoA.time || '')) || nameA.localeCompare(nameB, 'zh-Hant');
+      }
+
+      const lowA = lowStock(infoA, settings) ? 0 : 1;
+      const lowB = lowStock(infoB, settings) ? 0 : 1;
+      const maxA = Number(infoA.max || 0);
+      const maxB = Number(infoB.max || 0);
+      const ratioA = maxA > 0 ? Number(infoA.count || 0) / maxA : Number(infoA.count || 0) / 9999;
+      const ratioB = maxB > 0 ? Number(infoB.count || 0) / maxB : Number(infoB.count || 0) / 9999;
+      return lowA - lowB || ratioA - ratioB || nameA.localeCompare(nameB, 'zh-Hant');
+    });
+  }
+
+  function renderPortsTab(current, changes) {
+    const state = readPanelState();
+    const settings = readSettings();
+    const selectedPort = ports.some(p => p.port === state.selectedPort) ? state.selectedPort : ports[0].port;
+    const items = current[selectedPort] || {};
+    const sorted = sortedItemsForPort(items, state.sortMode || 'lowStock', settings);
+    const changePort = changes.find(c => c.port === selectedPort);
+    const changeByItem = new Map((changePort?.items || []).map(c => [c.item, c]));
+
+    return `
+      <div class="stella-port-layout">
+        <aside class="stella-port-nav">
+          ${ports.map(def => `
+            <button class="stella-port-nav-btn ${def.port === selectedPort ? 'active' : ''}" data-stella-action="select-port" data-port="${escapeHtml(def.port)}">
+              ${escapeHtml(def.port)}
+            </button>
+          `).join('')}
+        </aside>
+        <section class="stella-port-detail">
+          <div class="stella-port-detail-head">
+            <div>
+              <div class="stella-port-detail-title">${escapeHtml(selectedPort)}</div>
+              <div class="stella-port-detail-sub">${sorted.length} 項商品，最後更新 ${escapeHtml(latestTimeForPort(items))}</div>
+            </div>
+            <label class="stella-sort-label">
+              排序
+              <select data-stella-setting="sortMode" class="stella-select">
+                <option value="lowStock" ${state.sortMode === 'lowStock' ? 'selected' : ''}>低庫存</option>
+                <option value="time" ${state.sortMode === 'time' ? 'selected' : ''}>更新時間</option>
+                <option value="price" ${state.sortMode === 'price' ? 'selected' : ''}>價格</option>
+                <option value="name" ${state.sortMode === 'name' ? 'selected' : ''}>商品名稱</option>
+              </select>
+            </label>
+          </div>
+          <div class="stella-goods-table">
+            ${sorted.map(([itemName, info]) => renderPortItemRow(itemName, info, changeByItem.get(itemName), settings)).join('') || '<div class="stella-empty-line">目前沒有商品資料</div>'}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderPortItemRow(itemName, info, change, settings) {
+    const count = Number(info.count || 0);
+    const max = Number(info.max || 0);
+    const price = info.price && info.price !== '-' ? `${info.price} 魚幣` : '-';
+    const low = lowStock(info, settings);
+    const changeHtml = change ? renderMiniChange(change) : '<span class="stella-mini-muted">-</span>';
+
+    return `
+      <div class="stella-good-row ${low ? 'low' : ''}">
+        <div class="stella-good-main">
+          <div class="stella-good-name">${escapeHtml(itemName)}</div>
+          <div class="stella-good-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}</div>
+        </div>
+        <div class="stella-good-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</div>
+        <div class="stella-good-price">${escapeHtml(price)}</div>
+        <div class="stella-good-change">${changeHtml}</div>
+      </div>
+    `;
+  }
+
+  function renderMiniChange(change) {
+    if (change.type === 'new') return '<span class="stella-mini-up">新增</span>';
+    if (change.type === 'removed') return '<span class="stella-mini-muted">消失</span>';
+    const delta = Number(change.delta || 0);
+    if (delta > 0) return `<span class="stella-mini-up">+${delta}</span>`;
+    if (delta < 0) return `<span class="stella-mini-down">${delta}</span>`;
+    return '<span class="stella-mini-warn">變更</span>';
+  }
+
+  function renderSettingsTab() {
+    const settings = readSettings();
+
+    return `
+      <div class="stella-settings-list">
+        <label class="stella-setting-row">
+          <div>
+            <div class="stella-setting-title">顯示同步失敗提示</div>
+            <div class="stella-setting-sub">失敗時右上角跳出提醒。</div>
+          </div>
+          <input type="checkbox" data-stella-setting="showToast" ${settings.showToast ? 'checked' : ''}>
+        </label>
+
+        <label class="stella-setting-row">
+          <div>
+            <div class="stella-setting-title">顯示變化角標</div>
+            <div class="stella-setting-sub">上方跑商情報按鈕顯示變化數字。</div>
+          </div>
+          <input type="checkbox" data-stella-setting="showBadge" ${settings.showBadge ? 'checked' : ''}>
+        </label>
+
+        <label class="stella-setting-row">
+          <div>
+            <div class="stella-setting-title">顯示航程預估</div>
+            <div class="stella-setting-sub">在港口下方簡化資訊中顯示預計到達與返航。</div>
+          </div>
+          <input type="checkbox" data-stella-setting="showTravelEstimate" ${settings.showTravelEstimate ? 'checked' : ''}>
+        </label>
+
+        <label class="stella-setting-row">
+          <div>
+            <div class="stella-setting-title">開啟面板預設頁</div>
+            <div class="stella-setting-sub">下次打開情報面板時優先顯示。</div>
+          </div>
+          <select class="stella-select" data-stella-setting="defaultTab">
+            <option value="changes" ${settings.defaultTab === 'changes' ? 'selected' : ''}>變化</option>
+            <option value="overview" ${settings.defaultTab === 'overview' ? 'selected' : ''}>概覽</option>
+            <option value="ports" ${settings.defaultTab === 'ports' ? 'selected' : ''}>港口</option>
+          </select>
+        </label>
+
+        <label class="stella-setting-row">
+          <div>
+            <div class="stella-setting-title">低庫存比例</div>
+            <div class="stella-setting-sub">低於比例時，港口與商品會被標記。</div>
+          </div>
+          <select class="stella-select" data-stella-setting="lowStockRatio">
+            <option value="0.10" ${Number(settings.lowStockRatio) === 0.10 ? 'selected' : ''}>10%</option>
+            <option value="0.15" ${Number(settings.lowStockRatio) === 0.15 ? 'selected' : ''}>15%</option>
+            <option value="0.20" ${Number(settings.lowStockRatio) === 0.20 ? 'selected' : ''}>20%</option>
+            <option value="0.25" ${Number(settings.lowStockRatio) === 0.25 ? 'selected' : ''}>25%</option>
+          </select>
+        </label>
+
+        <div class="stella-setting-actions">
+          <button class="stella-danger-btn" data-stella-action="reset-seen">重置變化紀錄</button>
+          <button class="stella-small-btn" data-stella-action="manual-sync">立即同步雲端</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPanel() {
+    const state = readPanelState();
+    if (!state.isOpen) {
+      document.getElementById('stella-trade-modal-backdrop')?.remove();
+      return;
+    }
+
+    const settings = readSettings();
+    const { current, seen } = currentAndSeen();
+    const changes = compareMarketData(current, seen);
+    const changeCount = totalChangeCount(changes);
+    const selectedTab = ['changes', 'overview', 'ports', 'settings'].includes(state.selectedTab) ? state.selectedTab : settings.defaultTab;
+
+    let bodyHtml = '';
+    if (selectedTab === 'overview') bodyHtml = renderOverviewTab(current, changes);
+    else if (selectedTab === 'ports') bodyHtml = renderPortsTab(current, changes);
+    else if (selectedTab === 'settings') bodyHtml = renderSettingsTab();
+    else bodyHtml = renderChangesTab(changes);
+
+    const panelHtml = `
+      <div id="stella-trade-modal-backdrop">
+        <div id="stella-trade-panel" role="dialog" aria-label="跑商情報站">
+          <div class="stella-panel-header">
+            <div>
+              <div class="stella-panel-title">🚢 跑商情報站</div>
+              <div class="stella-panel-subtitle">港口庫存・價格・變化追蹤</div>
+            </div>
+            <div class="stella-panel-actions">
+              <button class="stella-icon-btn" data-stella-action="manual-sync" title="立即同步">↻</button>
+              <button class="stella-icon-btn" data-stella-action="close-panel" title="關閉">×</button>
+            </div>
+          </div>
+
+          <div class="stella-panel-status-row">
+            ${renderSyncStatus()}
+            <div class="stella-change-summary ${changeCount ? 'has-change' : ''}">
+              ${changeCount ? `有 ${changeCount} 項變化` : '沒有新的變化'}
+            </div>
+          </div>
+
+          <nav class="stella-tabs">
+            ${renderTabButton('changes', '變化', selectedTab, changeCount)}
+            ${renderTabButton('overview', '概覽', selectedTab)}
+            ${renderTabButton('ports', '港口', selectedTab)}
+            ${renderTabButton('settings', '設定', selectedTab)}
+          </nav>
+
+          <div class="stella-panel-body">
+            ${bodyHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const old = document.getElementById('stella-trade-modal-backdrop');
+    if (old) old.outerHTML = panelHtml;
+    else document.body.insertAdjacentHTML('beforeend', panelHtml);
+  }
+
+  function renderTabButton(tab, label, selectedTab, count = 0) {
+    return `
+      <button class="stella-tab ${selectedTab === tab ? 'active' : ''}" data-stella-action="switch-tab" data-tab="${tab}">
+        ${label}${count ? `<span>${count}</span>` : ''}
+      </button>
+    `;
+  }
+
+  function openPanel() {
+    const settings = readSettings();
+    const state = readPanelState();
+    state.isOpen = true;
+    if (!state.selectedTab || state.selectedTab === 'settings') state.selectedTab = settings.defaultTab || 'changes';
+    writePanelState(state);
+    renderPanel();
+  }
+
+  function closePanel() {
+    const state = readPanelState();
+    state.isOpen = false;
+    writePanelState(state);
+    renderPanel();
+  }
+
+  function schedulePanelRender() {
+    clearTimeout(panelRenderTimer);
+    panelRenderTimer = setTimeout(() => {
+      const state = readPanelState();
+      if (state.isOpen) renderPanel();
+    }, 100);
+  }
+
+  function findNativeButtonBar() {
+    const containers = [...document.querySelectorAll('nav, header, div')]
+      .filter(el => visible(el) && !el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback'))
+      .map(el => {
+        const rect = el.getBoundingClientRect();
+        const buttons = [...el.querySelectorAll('button, a, [role="button"]')].filter(visible);
+        const text = String(el.innerText || '');
+        return { el, rect, buttons, text };
+      })
+      .filter(x => {
+        if (x.buttons.length < 2) return false;
+        if (x.rect.top > 140) return false;
+        if (x.rect.height > 96) return false;
+        if (x.rect.width < 220) return false;
+        if (x.text.length > 500) return false;
+        return /出營|分莊|統計|我的隊伍|交戰|首頁|出海|市場|交易|Discord/.test(x.text);
+      })
+      .sort((a, b) => (a.rect.top - b.rect.top) || (b.buttons.length - a.buttons.length));
+
+    return containers[0]?.el || null;
+  }
+
+  function ensureLauncherButton() {
+    if (document.getElementById('stella-trade-launcher') || document.getElementById('stella-trade-launcher-fallback')) {
+      updateLauncherButton();
+      return;
+    }
+
+    const button = document.createElement('button');
+    button.id = 'stella-trade-launcher';
+    button.type = 'button';
+    button.dataset.stellaAction = 'open-panel';
+    button.className = 'stella-launcher-btn';
+
+    const bar = findNativeButtonBar();
+    if (bar) {
+      bar.appendChild(button);
+    } else {
+      button.id = 'stella-trade-launcher-fallback';
+      document.body.appendChild(button);
+    }
+
+    updateLauncherButton();
+  }
+
+  function updateLauncherButton() {
+    const btn = document.getElementById('stella-trade-launcher') || document.getElementById('stella-trade-launcher-fallback');
+    if (!btn) return;
+
+    const settings = readSettings();
+    const { current, seen } = currentAndSeen();
+    const changes = compareMarketData(current, seen);
+    const count = totalChangeCount(changes);
+    const fail = syncState.ok === false;
+
+    btn.classList.toggle('stella-launcher-fail', fail);
+    btn.classList.toggle('stella-launcher-changed', count > 0);
+
+    const badge = settings.showBadge && count > 0 ? `<span class="stella-launcher-badge">${count}</span>` : '';
+    const failBadge = fail ? '<span class="stella-launcher-alert">!</span>' : '';
+    btn.innerHTML = `<span>跑商情報</span>${failBadge}${badge}`;
+  }
+
+  function scheduleLauncherUpdate() {
+    clearTimeout(launcherTimer);
+    launcherTimer = setTimeout(() => {
+      ensureLauncherButton();
+      updateLauncherButton();
+    }, 120);
+  }
+
+  function markCurrentAsSeen() {
+    writeSeenData(ensureData());
+    schedulePanelRender();
+    scheduleLauncherUpdate();
   }
 
   function parseTravelDuration(text) {
@@ -710,7 +1343,6 @@
 
       const totalMs = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
       if (totalMs <= 0) continue;
-
       return { raw, totalMs };
     }
 
@@ -738,7 +1370,6 @@
   function buildSchedule(context) {
     const duration = parseTravelDuration(context?.innerText || '');
     if (!duration) return null;
-
     const now = new Date();
     return {
       durationRaw: duration.raw,
@@ -761,61 +1392,34 @@
     `;
   }
 
-  function renderSyncStatus() {
-    if (syncState.ok === true) {
-      const time = syncState.lastSuccessAt ? `　最後同步 ${timeOnly(syncState.lastSuccessAt)}` : '';
-      return `<div class="stella-sync-status stella-sync-ok"><span>雲端同步：正常${escapeHtml(time)}</span></div>`;
-    }
-
-    if (syncState.ok === false) {
-      const time = syncState.lastFailureAt ? `　${timeOnly(syncState.lastFailureAt)}` : '';
-      return `<div class="stella-sync-status stella-sync-fail"><span>雲端同步：失敗${escapeHtml(time)}　請開啟梯子同步</span></div>`;
-    }
-
-    return `<div class="stella-sync-status stella-sync-wait"><span>雲端同步：確認中</span></div>`;
-  }
-
-  function renderGoods(portName, schedule) {
+  function renderDetailGoods(portName, schedule) {
+    const settings = readSettings();
     const data = ensureData();
     const entries = Object.entries(data[portName] || {}).filter(([name]) => !isInvalidItemName(name));
-
-    const travelHtml = renderTravel(schedule);
-    const syncHtml = renderSyncStatus();
-
-    if (!entries.length) {
-      return `
-        <div class="stella-detail-goods">
-          ${travelHtml}
-          ${syncHtml}
-          <div class="stella-detail-goods-head"><span>貨物情報</span></div>
-          <div class="stella-detail-empty">目前沒有同步資料</div>
-        </div>
-      `;
-    }
-
-    const rows = entries.map(([itemName, info]) => {
-      const count = Number(info.count || 0);
-      const max = Number(info.max || 0);
-      const stock = max > 0 ? `${count}/${max}` : `${count}`;
-      const price = info.price && info.price !== '-' ? `${info.price} 魚幣` : '-';
-      return `
-        <div class="stella-detail-good">
-          <div class="stella-detail-good-top">
-            <span class="stella-detail-name">${escapeHtml(itemName)}</span>
-            <span class="stella-detail-stock" style="color:${stockColor(count, max)};">${escapeHtml(stock)}</span>
-            <span class="stella-detail-price">${escapeHtml(price)}</span>
-          </div>
-          <div class="stella-detail-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}</div>
-        </div>
-      `;
-    }).join('');
+    const travelHtml = settings.showTravelEstimate ? renderTravel(schedule) : '';
 
     return `
-      <div class="stella-detail-goods">
+      <div class="stella-detail-goods stella-detail-compact">
         ${travelHtml}
-        ${syncHtml}
+        ${renderSyncStatus(true)}
         <div class="stella-detail-goods-head"><span>貨物情報</span><span>${entries.length} 項</span></div>
-        <div class="stella-detail-goods-grid">${rows}</div>
+        <div class="stella-detail-goods-grid">
+          ${entries.map(([itemName, info]) => {
+            const count = Number(info.count || 0);
+            const max = Number(info.max || 0);
+            const price = info.price && info.price !== '-' ? `${info.price} 魚幣` : '-';
+            return `
+              <div class="stella-detail-good">
+                <div class="stella-detail-good-top">
+                  <span class="stella-detail-name">${escapeHtml(itemName)}</span>
+                  <span class="stella-detail-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</span>
+                  <span class="stella-detail-price">${escapeHtml(price)}</span>
+                </div>
+                <div class="stella-detail-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}</div>
+              </div>
+            `;
+          }).join('') || '<div class="stella-detail-empty">目前沒有同步資料</div>'}
+        </div>
       </div>
     `;
   }
@@ -823,17 +1427,11 @@
   function detectPortFromText(text) {
     const cleanText = String(text || '');
     const lines = cleanText.split('\n').map(x => x.trim()).filter(Boolean);
-
     for (const line of lines) {
       const exact = ports.find(def => def.port === normPort(line));
       if (exact) return exact.port;
     }
-
-    const matched = ports.filter(def => {
-      if (cleanText.includes(def.port)) return true;
-      return def.keywords.some(keyword => cleanText.includes(keyword));
-    });
-
+    const matched = ports.filter(def => cleanText.includes(def.port) || def.keywords.some(keyword => cleanText.includes(keyword)));
     if (!matched.length || matched.length > 2) return null;
     return matched[0].port;
   }
@@ -865,6 +1463,7 @@
       node = node.parentElement;
       if (!node || !visible(node)) continue;
       if (node.querySelector('.stella-detail-goods')) continue;
+      if (node.closest('#stella-trade-modal-backdrop')) continue;
 
       const text = String(node.innerText || '').trim();
       if (!text || text.length < 12 || text.length > 1600) continue;
@@ -874,16 +1473,7 @@
       if (!portName) continue;
       if (portCount(text) > 2) continue;
 
-      if (
-        text.includes('首頁') ||
-        text.includes('倉庫') ||
-        text.includes('市場') ||
-        text.includes('Discord') ||
-        text.includes('職業') ||
-        text.includes('排行')
-      ) {
-        continue;
-      }
+      if (text.includes('首頁') || text.includes('倉庫') || text.includes('市場') || text.includes('Discord') || text.includes('職業') || text.includes('排行')) continue;
 
       const rect = node.getBoundingClientRect();
       if (rect.width < 260 || rect.height < 110) continue;
@@ -892,7 +1482,6 @@
 
       return { context: node, portName };
     }
-
     return null;
   }
 
@@ -905,31 +1494,25 @@
   function insertTarget(departEl, context) {
     const directChild = directChildOf(departEl, context);
     if (!directChild) return context;
-
     const directText = String(directChild.innerText || '').trim();
     if (detectPortFromText(directText)) return directChild;
-
     return context;
   }
 
   function injectGoods() {
     ensureData();
     document.querySelectorAll('.stella-detail-goods').forEach(node => node.remove());
-
     const departElements = findDepartElements();
     const used = new Set();
 
     for (const departEl of departElements) {
       const found = findContextFromDepart(departEl);
       if (!found) continue;
-
       const { context, portName } = found;
       if (used.has(context)) continue;
-
       const target = insertTarget(departEl, context);
       const schedule = buildSchedule(context);
-      target.insertAdjacentHTML('beforeend', renderGoods(portName, schedule));
-
+      target.insertAdjacentHTML('beforeend', renderDetailGoods(portName, schedule));
       used.add(context);
       break;
     }
@@ -940,13 +1523,698 @@
     injectTimer = setTimeout(injectGoods, 120);
   }
 
+  function handleDocumentClick(event) {
+    const actionEl = event.target.closest('[data-stella-action]');
+    if (!actionEl) return;
+
+    const action = actionEl.dataset.stellaAction;
+
+    if (action === 'open-panel') {
+      event.preventDefault();
+      event.stopPropagation();
+      openPanel();
+      return;
+    }
+
+    if (!actionEl.closest('#stella-trade-modal-backdrop')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (action === 'close-panel') {
+      closePanel();
+      return;
+    }
+
+    if (action === 'switch-tab') {
+      const state = readPanelState();
+      state.selectedTab = actionEl.dataset.tab || 'changes';
+      writePanelState(state);
+      renderPanel();
+      return;
+    }
+
+    if (action === 'select-port') {
+      const state = readPanelState();
+      state.selectedPort = normPort(actionEl.dataset.port || ports[0].port);
+      state.selectedTab = 'ports';
+      writePanelState(state);
+      renderPanel();
+      return;
+    }
+
+    if (action === 'mark-read') {
+      markCurrentAsSeen();
+      return;
+    }
+
+    if (action === 'reset-seen') {
+      markCurrentAsSeen();
+      showSyncToast('已重置變化紀錄', '目前資料已設為新的比對基準。');
+      return;
+    }
+
+    if (action === 'manual-sync') {
+      fetchCloudData({ silent: false });
+      scrapeCurrentVisibleData({ upload: true, silent: true });
+      return;
+    }
+  }
+
+  function handleSettingChange(event) {
+    const target = event.target;
+    if (!target || !target.matches('[data-stella-setting]')) return;
+    if (!target.closest('#stella-trade-modal-backdrop')) return;
+
+    const key = target.dataset.stellaSetting;
+
+    if (key === 'sortMode') {
+      const state = readPanelState();
+      state.sortMode = target.value;
+      writePanelState(state);
+      renderPanel();
+      return;
+    }
+
+    const settings = readSettings();
+
+    if (target.type === 'checkbox') settings[key] = target.checked;
+    else if (key === 'lowStockRatio') settings[key] = Number(target.value);
+    else settings[key] = target.value;
+
+    writeSettings(settings);
+    scheduleLauncherUpdate();
+    scheduleInject();
+    renderPanel();
+  }
+
+  function isReturnClickTarget(target) {
+    if (!target || !target.closest) return false;
+    const el = target.closest('button, a, div, span');
+    if (!el || el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback')) return false;
+    const text = String(el.innerText || el.textContent || '').trim();
+    return text.includes('返航') || text.includes('返回') || text.includes('離港') || text.includes('离港') || text.includes('出發') || text.includes('出发');
+  }
+
+  function handleInteraction(event) {
+    if (event.target.closest?.('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback')) return;
+    const now = Date.now();
+
+    if (isReturnClickTarget(event.target)) {
+      if (now - lastClickUpdateAt < RETURN_UPDATE_COOLDOWN) return;
+      lastClickUpdateAt = now;
+      clearTimeout(clickTimer);
+      scrapeCurrentVisibleData({ upload: true, silent: true });
+      scheduleInject();
+      return;
+    }
+
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => {
+      const ok = scrapeCurrentVisibleData({ upload: true, silent: true });
+      if (ok) lastClickUpdateAt = Date.now();
+      scheduleInject();
+    }, CLICK_UPDATE_DELAY);
+  }
+
+  function setupListeners() {
+    if (listenersReady) return;
+    listenersReady = true;
+    document.addEventListener('click', handleDocumentClick, true);
+    document.addEventListener('change', handleSettingChange, true);
+    document.addEventListener('pointerup', handleInteraction, true);
+    document.addEventListener('touchend', handleInteraction, true);
+    document.addEventListener('mouseover', scheduleInject, true);
+    document.addEventListener('focusin', scheduleInject, true);
+  }
+
+  function setupObserver() {
+    if (observerReady || !document.body) return;
+    observerReady = true;
+
+    const observer = new MutationObserver(() => {
+      clearTimeout(observerTimer);
+      observerTimer = setTimeout(() => {
+        scrapeCurrentVisibleData({ upload: false, silent: true });
+        scheduleInject();
+        scheduleLauncherUpdate();
+      }, 800);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
   function installStyles() {
-    if (document.getElementById('stella-detail-style')) return;
+    if (document.getElementById('stella-trade-style')) return;
 
     const style = document.createElement('style');
-    style.id = 'stella-detail-style';
-
+    style.id = 'stella-trade-style';
     style.textContent = `
+      .stella-launcher-btn,
+      #stella-trade-launcher-fallback {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        min-height: 30px !important;
+        padding: 5px 12px !important;
+        border: 1px solid rgba(135, 180, 255, 0.55) !important;
+        border-radius: 7px !important;
+        background: linear-gradient(180deg, #5064c8, #38478d) !important;
+        color: #fff !important;
+        font-weight: 900 !important;
+        font-size: 14px !important;
+        line-height: 1 !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 3px 10px rgba(0,0,0,0.22) !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        white-space: nowrap !important;
+        font-family: inherit !important;
+      }
+
+      .stella-launcher-btn:hover,
+      #stella-trade-launcher-fallback:hover {
+        filter: brightness(1.14) !important;
+      }
+
+      .stella-launcher-btn.stella-launcher-changed,
+      #stella-trade-launcher-fallback.stella-launcher-changed {
+        background: linear-gradient(180deg, #35ad94, #207767) !important;
+      }
+
+      .stella-launcher-btn.stella-launcher-fail,
+      #stella-trade-launcher-fallback.stella-launcher-fail {
+        background: linear-gradient(180deg, #e46a78, #9f3544) !important;
+      }
+
+      #stella-trade-launcher-fallback {
+        position: fixed !important;
+        top: 14px !important;
+        right: 18px !important;
+        z-index: 2147483000 !important;
+      }
+
+      .stella-launcher-badge,
+      .stella-launcher-alert {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 18px !important;
+        height: 18px !important;
+        padding: 0 5px !important;
+        border-radius: 999px !important;
+        font-size: 12px !important;
+        font-weight: 950 !important;
+        color: #223 !important;
+        background: #ffd166 !important;
+      }
+
+      .stella-launcher-alert {
+        color: #fff !important;
+        background: #ff4d5e !important;
+      }
+
+      #stella-trade-modal-backdrop {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2147483200 !important;
+        background: rgba(3, 8, 18, 0.48) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 22px !important;
+        box-sizing: border-box !important;
+      }
+
+      #stella-trade-panel {
+        width: min(920px, calc(100vw - 28px)) !important;
+        max-height: min(82vh, 780px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        border: 1px solid rgba(159, 190, 255, 0.38) !important;
+        border-radius: 14px !important;
+        background: linear-gradient(180deg, rgba(55, 64, 103, 0.98), rgba(31, 36, 58, 0.98)) !important;
+        color: #eef4ff !important;
+        box-shadow: 0 24px 72px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        overflow: hidden !important;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif !important;
+      }
+
+      .stella-panel-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 14px !important;
+        padding: 16px 18px 12px !important;
+        background: rgba(80, 94, 150, 0.72) !important;
+        border-bottom: 1px solid rgba(185, 203, 255, 0.16) !important;
+      }
+
+      .stella-panel-title {
+        font-size: 22px !important;
+        font-weight: 950 !important;
+        color: #fff !important;
+      }
+
+      .stella-panel-subtitle {
+        margin-top: 3px !important;
+        font-size: 12px !important;
+        color: #cbd8ff !important;
+      }
+
+      .stella-panel-actions {
+        display: flex !important;
+        gap: 8px !important;
+      }
+
+      .stella-icon-btn {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(210,220,255,0.25) !important;
+        background: rgba(255,255,255,0.10) !important;
+        color: #eaf0ff !important;
+        font-size: 18px !important;
+        font-weight: 900 !important;
+        cursor: pointer !important;
+      }
+
+      .stella-panel-status-row {
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        gap: 10px !important;
+        padding: 12px 18px 0 !important;
+        align-items: center !important;
+      }
+
+      .stella-sync-status,
+      .stella-change-summary {
+        padding: 8px 10px !important;
+        border-radius: 10px !important;
+        font-size: 12px !important;
+        font-weight: 850 !important;
+        line-height: 1.35 !important;
+        box-sizing: border-box !important;
+      }
+
+      .stella-sync-ok {
+        color: #b8ffe0 !important;
+        border: 1px solid rgba(114, 240, 178, 0.28) !important;
+        background: rgba(41, 150, 107, 0.20) !important;
+      }
+
+      .stella-sync-fail {
+        color: #ffd1d1 !important;
+        border: 1px solid rgba(255, 107, 107, 0.36) !important;
+        background: rgba(180, 45, 55, 0.22) !important;
+      }
+
+      .stella-sync-wait {
+        color: #d7e6ff !important;
+        border: 1px solid rgba(150, 185, 255, 0.26) !important;
+        background: rgba(80, 110, 180, 0.20) !important;
+      }
+
+      .stella-change-summary {
+        color: #cfd8ff !important;
+        border: 1px solid rgba(160, 180, 255, 0.18) !important;
+        background: rgba(255,255,255,0.06) !important;
+        white-space: nowrap !important;
+      }
+
+      .stella-change-summary.has-change {
+        color: #fff3c4 !important;
+        border-color: rgba(255, 209, 102, 0.32) !important;
+        background: rgba(255, 209, 102, 0.13) !important;
+      }
+
+      .stella-tabs {
+        display: flex !important;
+        gap: 6px !important;
+        padding: 12px 18px 0 !important;
+      }
+
+      .stella-tab {
+        position: relative !important;
+        border: 1px solid rgba(185, 203, 255, 0.18) !important;
+        background: rgba(255,255,255,0.08) !important;
+        color: #dbe4ff !important;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 9px 16px !important;
+        font-weight: 900 !important;
+        cursor: pointer !important;
+      }
+
+      .stella-tab.active {
+        background: rgba(125, 145, 215, 0.50) !important;
+        color: #fff !important;
+      }
+
+      .stella-tab span {
+        margin-left: 6px !important;
+        padding: 1px 6px !important;
+        border-radius: 999px !important;
+        background: #ffd166 !important;
+        color: #1f243a !important;
+        font-size: 11px !important;
+      }
+
+      .stella-panel-body {
+        padding: 14px 18px 18px !important;
+        overflow: auto !important;
+        min-height: 260px !important;
+      }
+
+      .stella-panel-toolbar {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+      }
+
+      .stella-panel-hint {
+        color: #cbd8ff !important;
+        font-size: 13px !important;
+      }
+
+      .stella-small-btn,
+      .stella-danger-btn {
+        border: 1px solid rgba(185, 203, 255, 0.28) !important;
+        border-radius: 8px !important;
+        background: rgba(88, 110, 190, 0.55) !important;
+        color: #fff !important;
+        font-weight: 900 !important;
+        padding: 8px 12px !important;
+        cursor: pointer !important;
+      }
+
+      .stella-danger-btn {
+        background: rgba(180, 60, 78, 0.62) !important;
+        border-color: rgba(255, 140, 150, 0.35) !important;
+      }
+
+      .stella-change-list,
+      .stella-overview-grid,
+      .stella-settings-list {
+        display: grid !important;
+        gap: 10px !important;
+      }
+
+      .stella-change-card,
+      .stella-overview-card,
+      .stella-setting-row,
+      .stella-port-detail {
+        border: 1px solid rgba(185, 203, 255, 0.18) !important;
+        background: rgba(18, 23, 38, 0.42) !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+        box-sizing: border-box !important;
+      }
+
+      .stella-change-port {
+        font-size: 17px !important;
+        font-weight: 950 !important;
+        color: #fff !important;
+        margin-bottom: 8px !important;
+      }
+
+      .stella-change-items {
+        display: grid !important;
+        gap: 6px !important;
+      }
+
+      .stella-change-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 8px 9px !important;
+        border-radius: 9px !important;
+        background: rgba(255,255,255,0.055) !important;
+      }
+
+      .stella-change-name {
+        min-width: 92px !important;
+        font-weight: 900 !important;
+        color: #f6f8ff !important;
+      }
+
+      .stella-change-stock,
+      .stella-change-price {
+        color: #dbe5ff !important;
+        font-size: 12px !important;
+      }
+
+      .stella-change-pill,
+      .stella-mini-up,
+      .stella-mini-down,
+      .stella-mini-warn,
+      .stella-mini-muted,
+      .stella-badge-ok,
+      .stella-badge-warn,
+      .stella-badge-change,
+      .stella-badge-muted {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 999px !important;
+        padding: 2px 7px !important;
+        font-size: 11px !important;
+        font-weight: 950 !important;
+      }
+
+      .stella-change-up,
+      .stella-mini-up,
+      .stella-badge-ok {
+        color: #7affbd !important;
+        background: rgba(87, 220, 148, 0.12) !important;
+      }
+
+      .stella-change-down,
+      .stella-mini-down,
+      .stella-badge-warn {
+        color: #ff8585 !important;
+        background: rgba(255, 107, 107, 0.14) !important;
+      }
+
+      .stella-change-neutral,
+      .stella-mini-warn,
+      .stella-change-price-diff,
+      .stella-change-restock,
+      .stella-badge-change {
+        color: #ffd166 !important;
+        background: rgba(255, 209, 102, 0.13) !important;
+      }
+
+      .stella-change-muted,
+      .stella-mini-muted,
+      .stella-badge-muted {
+        color: #b7c1d8 !important;
+        background: rgba(255,255,255,0.08) !important;
+      }
+
+      .stella-overview-grid {
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+      }
+
+      .stella-overview-card {
+        text-align: left !important;
+        color: #eaf0ff !important;
+        cursor: pointer !important;
+        font-family: inherit !important;
+      }
+
+      .stella-overview-card:hover {
+        filter: brightness(1.12) !important;
+      }
+
+      .stella-overview-changed {
+        border-color: rgba(255, 209, 102, 0.45) !important;
+        box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.12) inset !important;
+      }
+
+      .stella-overview-name,
+      .stella-port-detail-title {
+        font-size: 17px !important;
+        font-weight: 950 !important;
+        color: #fff !important;
+      }
+
+      .stella-overview-meta,
+      .stella-port-detail-sub,
+      .stella-overview-line {
+        color: #c8d4f8 !important;
+        font-size: 12px !important;
+        margin-top: 5px !important;
+      }
+
+      .stella-overview-badges {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        margin-top: 10px !important;
+      }
+
+      .stella-port-layout {
+        display: grid !important;
+        grid-template-columns: 160px 1fr !important;
+        gap: 12px !important;
+      }
+
+      .stella-port-nav {
+        display: grid !important;
+        align-content: start !important;
+        gap: 8px !important;
+      }
+
+      .stella-port-nav-btn {
+        width: 100% !important;
+        padding: 10px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(185, 203, 255, 0.18) !important;
+        background: rgba(255,255,255,0.07) !important;
+        color: #dbe4ff !important;
+        text-align: left !important;
+        font-weight: 900 !important;
+        cursor: pointer !important;
+      }
+
+      .stella-port-nav-btn.active {
+        color: #fff !important;
+        background: rgba(85, 190, 165, 0.32) !important;
+        border-color: rgba(120, 255, 220, 0.35) !important;
+      }
+
+      .stella-port-detail-head {
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 12px !important;
+        align-items: start !important;
+        margin-bottom: 12px !important;
+      }
+
+      .stella-sort-label {
+        display: grid !important;
+        gap: 5px !important;
+        color: #c8d4f8 !important;
+        font-size: 12px !important;
+        font-weight: 800 !important;
+      }
+
+      .stella-select {
+        min-width: 110px !important;
+        border: 1px solid rgba(185, 203, 255, 0.25) !important;
+        border-radius: 8px !important;
+        background: rgba(14, 18, 31, 0.92) !important;
+        color: #fff !important;
+        padding: 7px 9px !important;
+        font-weight: 800 !important;
+      }
+
+      .stella-goods-table {
+        display: grid !important;
+        gap: 7px !important;
+      }
+
+      .stella-good-row {
+        display: grid !important;
+        grid-template-columns: minmax(140px, 1fr) auto auto auto !important;
+        gap: 10px !important;
+        align-items: center !important;
+        padding: 9px 10px !important;
+        border-radius: 10px !important;
+        background: rgba(255,255,255,0.055) !important;
+        border: 1px solid rgba(185, 203, 255, 0.10) !important;
+      }
+
+      .stella-good-row.low {
+        border-color: rgba(255, 107, 107, 0.35) !important;
+      }
+
+      .stella-good-name {
+        color: #fff !important;
+        font-weight: 950 !important;
+      }
+
+      .stella-good-meta {
+        color: #b7c1d8 !important;
+        font-size: 10px !important;
+        margin-top: 3px !important;
+      }
+
+      .stella-good-stock,
+      .stella-good-price,
+      .stella-good-change {
+        font-size: 12px !important;
+        font-weight: 950 !important;
+        white-space: nowrap !important;
+      }
+
+      .stella-good-price {
+        color: #ffd166 !important;
+      }
+
+      .stella-setting-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 14px !important;
+      }
+
+      .stella-setting-title {
+        font-size: 14px !important;
+        font-weight: 950 !important;
+        color: #fff !important;
+      }
+
+      .stella-setting-sub {
+        color: #b7c1d8 !important;
+        font-size: 12px !important;
+        margin-top: 3px !important;
+      }
+
+      .stella-setting-actions {
+        display: flex !important;
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+        margin-top: 4px !important;
+      }
+
+      .stella-empty-state {
+        text-align: center !important;
+        padding: 42px 12px !important;
+        border: 1px dashed rgba(185, 203, 255, 0.22) !important;
+        border-radius: 14px !important;
+        color: #c8d4f8 !important;
+      }
+
+      .stella-empty-icon {
+        width: 44px !important;
+        height: 44px !important;
+        margin: 0 auto 12px !important;
+        border-radius: 999px !important;
+        display: grid !important;
+        place-items: center !important;
+        background: rgba(114, 240, 178, 0.12) !important;
+        color: #7affbd !important;
+        font-size: 24px !important;
+        font-weight: 950 !important;
+      }
+
+      .stella-empty-title {
+        color: #fff !important;
+        font-size: 16px !important;
+        font-weight: 950 !important;
+      }
+
+      .stella-empty-sub,
+      .stella-empty-line {
+        color: #b7c1d8 !important;
+        margin-top: 6px !important;
+        font-size: 12px !important;
+      }
+
       .stella-detail-goods {
         margin-top: 14px !important;
         padding: 12px !important;
@@ -959,76 +2227,6 @@
         box-sizing: border-box !important;
       }
 
-      .stella-travel-schedule {
-        margin-bottom: 12px !important;
-        padding: 10px 10px !important;
-        border: 1px solid rgba(255, 209, 102, 0.26) !important;
-        border-radius: 11px !important;
-        background: rgba(255, 209, 102, 0.08) !important;
-      }
-
-      .stella-travel-title {
-        margin-bottom: 8px !important;
-        color: #ffd166 !important;
-        font-size: 13px !important;
-        font-weight: 900 !important;
-      }
-
-      .stella-travel-grid {
-        display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-      }
-
-      .stella-travel-grid div {
-        padding: 7px 8px !important;
-        border-radius: 9px !important;
-        background: rgba(3, 22, 19, 0.28) !important;
-        min-width: 0 !important;
-      }
-
-      .stella-travel-label {
-        display: block !important;
-        margin-bottom: 3px !important;
-        color: #b6cfc8 !important;
-        font-size: 10px !important;
-        white-space: nowrap !important;
-      }
-
-      .stella-travel-grid strong {
-        color: #fff3c4 !important;
-        font-size: 13px !important;
-        font-weight: 900 !important;
-        white-space: nowrap !important;
-      }
-
-      .stella-sync-status {
-        margin-bottom: 12px !important;
-        padding: 8px 10px !important;
-        border-radius: 10px !important;
-        font-size: 12px !important;
-        font-weight: 800 !important;
-        line-height: 1.35 !important;
-      }
-
-      .stella-sync-ok {
-        color: #b8ffe0 !important;
-        border: 1px solid rgba(114, 240, 178, 0.28) !important;
-        background: rgba(114, 240, 178, 0.08) !important;
-      }
-
-      .stella-sync-fail {
-        color: #ffd1d1 !important;
-        border: 1px solid rgba(255, 107, 107, 0.36) !important;
-        background: rgba(255, 107, 107, 0.12) !important;
-      }
-
-      .stella-sync-wait {
-        color: #d7e6ff !important;
-        border: 1px solid rgba(150, 185, 255, 0.26) !important;
-        background: rgba(150, 185, 255, 0.08) !important;
-      }
-
       .stella-detail-goods-head {
         display: flex !important;
         justify-content: space-between !important;
@@ -1037,12 +2235,6 @@
         color: #92f5d3 !important;
         font-weight: 900 !important;
         font-size: 14px !important;
-      }
-
-      .stella-detail-goods-head span:last-child {
-        color: #b7d9cf !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
       }
 
       .stella-detail-goods-grid {
@@ -1100,9 +2292,43 @@
         text-overflow: ellipsis !important;
       }
 
-      .stella-detail-empty {
+      .stella-travel-schedule {
+        margin-bottom: 12px !important;
+        padding: 10px !important;
+        border: 1px solid rgba(255, 209, 102, 0.26) !important;
+        border-radius: 11px !important;
+        background: rgba(255, 209, 102, 0.08) !important;
+      }
+
+      .stella-travel-title {
+        margin-bottom: 8px !important;
+        color: #ffd166 !important;
+        font-size: 13px !important;
+        font-weight: 900 !important;
+      }
+
+      .stella-travel-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+      }
+
+      .stella-travel-grid div {
+        padding: 7px 8px !important;
+        border-radius: 9px !important;
+        background: rgba(3, 22, 19, 0.28) !important;
+      }
+
+      .stella-travel-label {
+        display: block !important;
+        margin-bottom: 3px !important;
         color: #b6cfc8 !important;
-        font-size: 12px !important;
+        font-size: 10px !important;
+      }
+
+      .stella-travel-grid strong {
+        color: #fff3c4 !important;
+        font-size: 13px !important;
       }
 
       #stella-sync-toast {
@@ -1149,56 +2375,73 @@
         to { transform: translateY(-10px); opacity: 0; }
       }
 
-      @media (max-width: 620px) {
-        .stella-detail-goods {
-          margin-top: 10px !important;
-          padding: 9px !important;
+      @media (max-width: 720px) {
+        #stella-trade-modal-backdrop {
+          align-items: flex-start !important;
+          padding: 12px !important;
+          padding-bottom: 80px !important;
         }
 
-        .stella-travel-schedule {
-          padding: 8px !important;
-          margin-bottom: 10px !important;
+        #stella-trade-panel {
+          width: calc(100vw - 24px) !important;
+          max-height: calc(100vh - 96px) !important;
         }
 
-        .stella-travel-grid {
+        .stella-panel-header,
+        .stella-panel-status-row,
+        .stella-tabs,
+        .stella-panel-body {
+          padding-left: 12px !important;
+          padding-right: 12px !important;
+        }
+
+        .stella-panel-title {
+          font-size: 19px !important;
+        }
+
+        .stella-panel-status-row {
           grid-template-columns: 1fr !important;
-          gap: 6px !important;
         }
 
-        .stella-travel-grid strong {
-          font-size: 12px !important;
+        .stella-tabs {
+          overflow-x: auto !important;
         }
 
-        .stella-sync-status {
-          font-size: 11px !important;
-          padding: 7px 8px !important;
+        .stella-tab {
+          flex: 0 0 auto !important;
+          padding: 8px 13px !important;
         }
 
-        .stella-detail-goods-head {
-          font-size: 13px !important;
-          margin-bottom: 8px !important;
-        }
-
-        .stella-detail-goods-grid {
+        .stella-port-layout {
           grid-template-columns: 1fr !important;
-          gap: 6px !important;
         }
 
-        .stella-detail-good {
-          padding: 7px 8px !important;
+        .stella-port-nav {
+          display: flex !important;
+          overflow-x: auto !important;
         }
 
-        .stella-detail-name {
-          font-size: 12px !important;
+        .stella-port-nav-btn {
+          flex: 0 0 auto !important;
+          width: auto !important;
         }
 
-        .stella-detail-stock {
-          font-size: 11px !important;
+        .stella-port-detail-head {
+          display: grid !important;
         }
 
-        .stella-detail-price,
-        .stella-detail-meta {
-          font-size: 10px !important;
+        .stella-good-row {
+          grid-template-columns: 1fr !important;
+          gap: 5px !important;
+        }
+
+        .stella-setting-row {
+          align-items: flex-start !important;
+        }
+
+        #stella-trade-launcher-fallback {
+          top: 12px !important;
+          right: 12px !important;
         }
 
         #stella-sync-toast {
@@ -1213,73 +2456,8 @@
     document.head.appendChild(style);
   }
 
-  function isReturnClickTarget(target) {
-    if (!target || !target.closest) return false;
-    const el = target.closest('button, a, div, span');
-    if (!el) return false;
-    const text = String(el.innerText || el.textContent || '').trim();
-    return (
-      text.includes('返航') ||
-      text.includes('返回') ||
-      text.includes('離港') ||
-      text.includes('离港') ||
-      text.includes('出發') ||
-      text.includes('出发')
-    );
-  }
-
-  function handleInteraction(event) {
-    const now = Date.now();
-
-    if (isReturnClickTarget(event.target)) {
-      if (now - lastClickUpdateAt < RETURN_UPDATE_COOLDOWN) return;
-      lastClickUpdateAt = now;
-      clearTimeout(clickTimer);
-      scrapeCurrentVisibleData({ upload: true, silent: true });
-      scheduleInject();
-      return;
-    }
-
-    clearTimeout(clickTimer);
-    clickTimer = setTimeout(() => {
-      const ok = scrapeCurrentVisibleData({ upload: true, silent: true });
-      if (ok) lastClickUpdateAt = Date.now();
-      scheduleInject();
-    }, CLICK_UPDATE_DELAY);
-  }
-
-  function setupListeners() {
-    if (listenersReady) return;
-    listenersReady = true;
-    document.addEventListener('pointerup', handleInteraction, true);
-    document.addEventListener('touchend', handleInteraction, true);
-    document.addEventListener('click', handleInteraction, true);
-    document.addEventListener('mouseover', scheduleInject, true);
-    document.addEventListener('focusin', scheduleInject, true);
-  }
-
-  function setupObserver() {
-    if (observerReady || !document.body) return;
-    observerReady = true;
-
-    const observer = new MutationObserver(() => {
-      clearTimeout(observerTimer);
-      observerTimer = setTimeout(() => {
-        scrapeCurrentVisibleData({ upload: false, silent: true });
-        scheduleInject();
-      }, 800);
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
-  }
-
   function start(attempt = 0) {
     if (started) return;
-
     if (!document.body || !document.head) {
       if (attempt < 40) setTimeout(() => start(attempt + 1), 250);
       else console.warn('[StellaTrade] 找不到 document.body/head，無法啟動');
@@ -1288,21 +2466,24 @@
 
     started = true;
     ensureData();
+    initializeSeenIfMissing();
     installStyles();
     setupObserver();
     setupListeners();
+    ensureLauncherButton();
     scheduleInject();
+    scheduleLauncherUpdate();
 
     setTimeout(() => {
       fetchCloudData({ silent: true });
       scrapeCurrentVisibleData({ upload: false, silent: true });
       scheduleInject();
+      scheduleLauncherUpdate();
     }, 1000);
 
     setInterval(() => {
-      if (Date.now() - lastCloudPullAt >= CLOUD_PULL_INTERVAL) {
-        fetchCloudData({ silent: true });
-      }
+      ensureLauncherButton();
+      if (Date.now() - lastCloudPullAt >= CLOUD_PULL_INTERVAL) fetchCloudData({ silent: true });
     }, CLOUD_PULL_INTERVAL);
   }
 
