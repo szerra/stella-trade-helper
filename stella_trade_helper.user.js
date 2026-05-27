@@ -1749,7 +1749,9 @@
 
       #stella-trade-panel {
         width: min(920px, calc(100vw - 28px)) !important;
+        height: min(82vh, 780px) !important;
         max-height: min(82vh, 780px) !important;
+        min-height: 620px !important;
         display: flex !important;
         flex-direction: column !important;
         border: 1px solid rgba(159, 190, 255, 0.38) !important;
@@ -1883,7 +1885,8 @@
       .stella-panel-body {
         padding: 14px 18px 18px !important;
         overflow: auto !important;
-        min-height: 260px !important;
+        min-height: 0 !important;
+        flex: 1 1 auto !important;
       }
 
       .stella-panel-toolbar {
@@ -2376,6 +2379,20 @@
         to { transform: translateY(-10px); opacity: 0; }
       }
 
+
+      @media (max-height: 650px) {
+        #stella-trade-panel {
+          min-height: 0 !important;
+          height: calc(100vh - 36px) !important;
+          max-height: calc(100vh - 36px) !important;
+        }
+
+        #stella-trade-modal-backdrop {
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
+        }
+      }
+
       @media (max-width: 720px) {
         #stella-trade-modal-backdrop {
           align-items: flex-start !important;
@@ -2385,7 +2402,9 @@
 
         #stella-trade-panel {
           width: calc(100vw - 24px) !important;
+          height: calc(100vh - 96px) !important;
           max-height: calc(100vh - 96px) !important;
+          min-height: 520px !important;
         }
 
         .stella-panel-header,
