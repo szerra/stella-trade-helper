@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.3
+// @version      1.6.4
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.3] 腳本已載入');
+  console.log('[StellaTrade 1.6.4] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
