@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.5
+// @version      1.6.6
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.5] 腳本已載入');
+  console.log('[StellaTrade 1.6.6] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -1728,7 +1728,7 @@
         height: 18px !important;
         padding: 0 5px !important;
         border-radius: 999px !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: 950 !important;
         color: #223 !important;
         background: #ffd166 !important;
@@ -1785,7 +1785,7 @@
 
       .stella-panel-subtitle {
         margin-top: 3px !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         color: #cbd8ff !important;
       }
 
@@ -1818,7 +1818,7 @@
       .stella-change-summary {
         padding: 8px 10px !important;
         border-radius: 10px !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: 850 !important;
         line-height: 1.35 !important;
         box-sizing: border-box !important;
@@ -1971,7 +1971,7 @@
       .stella-change-stock,
       .stella-change-price {
         color: #dbe5ff !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
       }
 
       .stella-change-pill,
@@ -2053,7 +2053,7 @@
       .stella-port-detail-sub,
       .stella-overview-line {
         color: #c8d4f8 !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         margin-top: 5px !important;
       }
 
@@ -2106,7 +2106,7 @@
         display: grid !important;
         gap: 5px !important;
         color: #c8d4f8 !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: 800 !important;
       }
 
@@ -2154,7 +2154,7 @@
       .stella-good-stock,
       .stella-good-price,
       .stella-good-change {
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: 950 !important;
         white-space: nowrap !important;
       }
@@ -2178,7 +2178,7 @@
 
       .stella-setting-sub {
         color: #b7c1d8 !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         margin-top: 3px !important;
       }
 
@@ -2220,7 +2220,7 @@
       .stella-empty-line {
         color: #b7c1d8 !important;
         margin-top: 6px !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
       }
 
       .stella-detail-goods {
@@ -2280,7 +2280,7 @@
       }
 
       .stella-detail-stock {
-        font-size: 12px !important;
+        font-size: 11px !important;
         font-weight: 900 !important;
         white-space: nowrap !important;
       }
@@ -2365,7 +2365,7 @@
 
       .stella-sync-toast-message {
         color: #ffe7e7 !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         line-height: 1.45 !important;
       }
 
@@ -2466,13 +2466,13 @@
         #stella-trade-launcher-fallback {
           position: fixed !important;
           top: auto !important;
-          left: auto !important;
-          right: 22px !important;
-          bottom: calc(env(safe-area-inset-bottom, 0px) + 132px) !important;
-          width: 68px !important;
-          height: 68px !important;
-          min-width: 68px !important;
-          min-height: 68px !important;
+          left: 16px !important;
+          right: auto !important;
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 128px) !important;
+          width: 58px !important;
+          height: 58px !important;
+          min-width: 58px !important;
+          min-height: 58px !important;
           padding: 0 !important;
           border-radius: 999px !important;
           z-index: 2147483000 !important;
@@ -2496,7 +2496,7 @@
           justify-content: center !important;
           width: 100% !important;
           height: 100% !important;
-          font-size: 25px !important;
+          font-size: 21px !important;
           font-weight: 950 !important;
           line-height: 1 !important;
           color: #ffffff !important;
@@ -2505,24 +2505,24 @@
 
         #stella-trade-launcher-fallback .stella-launcher-badge {
           position: absolute !important;
-          top: -7px !important;
-          right: -7px !important;
-          min-width: 22px !important;
-          height: 22px !important;
+          top: -6px !important;
+          right: -6px !important;
+          min-width: 20px !important;
+          height: 20px !important;
           padding: 0 6px !important;
-          font-size: 12px !important;
+          font-size: 11px !important;
           border: 2px solid rgba(30, 38, 70, 0.96) !important;
           box-sizing: border-box !important;
         }
 
         #stella-trade-launcher-fallback .stella-launcher-alert {
           position: absolute !important;
-          top: -7px !important;
-          left: -7px !important;
-          min-width: 22px !important;
-          height: 22px !important;
+          top: -6px !important;
+          left: -6px !important;
+          min-width: 20px !important;
+          height: 20px !important;
           padding: 0 6px !important;
-          font-size: 12px !important;
+          font-size: 11px !important;
           border: 2px solid rgba(30, 38, 70, 0.96) !important;
           box-sizing: border-box !important;
         }
