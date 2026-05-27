@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.10
+// @version      1.6.11
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.10] 腳本已載入');
+  console.log('[StellaTrade 1.6.11] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -2436,18 +2436,46 @@
           padding: 8px 13px !important;
         }
 
+        .stella-panel-body {
+          padding-top: 24px !important;
+        }
+
+        .stella-tabs {
+          padding-bottom: 10px !important;
+          overflow-x: auto !important;
+          overflow-y: visible !important;
+          align-items: flex-end !important;
+        }
+
+        .stella-tabs::-webkit-scrollbar,
+        .stella-port-nav::-webkit-scrollbar {
+          display: none !important;
+        }
+
         .stella-port-layout {
           grid-template-columns: 1fr !important;
+          gap: 16px !important;
         }
 
         .stella-port-nav {
           display: flex !important;
+          gap: 10px !important;
           overflow-x: auto !important;
+          overflow-y: visible !important;
+          padding: 14px 0 12px !important;
+          margin-top: 2px !important;
+          min-height: 68px !important;
+          align-items: center !important;
+          scrollbar-width: none !important;
         }
 
         .stella-port-nav-btn {
           flex: 0 0 auto !important;
           width: auto !important;
+          min-height: 48px !important;
+          padding: 10px 20px !important;
+          line-height: 1.15 !important;
+          white-space: nowrap !important;
         }
 
         .stella-port-detail-head {
