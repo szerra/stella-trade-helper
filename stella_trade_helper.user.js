@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.4
+// @version      1.6.5
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.4] 腳本已載入');
+  console.log('[StellaTrade 1.6.5] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -431,6 +431,10 @@
     if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
     const rect = el.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
+  }
+
+  function isMobileViewport() {
+    return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
   }
 
   function extractStock(text) {
@@ -1273,7 +1277,7 @@
     button.dataset.stellaAction = 'open-panel';
     button.className = 'stella-launcher-btn';
 
-    const bar = findNativeButtonBar();
+    const bar = isMobileViewport() ? null : findNativeButtonBar();
     if (bar) {
       bar.insertBefore(button, bar.firstElementChild || null);
     } else {
@@ -2460,8 +2464,67 @@
         }
 
         #stella-trade-launcher-fallback {
-          top: 12px !important;
-          right: 12px !important;
+          position: fixed !important;
+          top: auto !important;
+          left: auto !important;
+          right: 22px !important;
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 132px) !important;
+          width: 68px !important;
+          height: 68px !important;
+          min-width: 68px !important;
+          min-height: 68px !important;
+          padding: 0 !important;
+          border-radius: 999px !important;
+          z-index: 2147483000 !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-shadow:
+            0 10px 26px rgba(0, 0, 0, 0.36),
+            inset 0 1px 0 rgba(255,255,255,0.22) !important;
+          touch-action: manipulation !important;
+        }
+
+        #stella-trade-launcher-fallback > span {
+          display: none !important;
+        }
+
+        #stella-trade-launcher-fallback::before {
+          content: "商" !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 100% !important;
+          height: 100% !important;
+          font-size: 25px !important;
+          font-weight: 950 !important;
+          line-height: 1 !important;
+          color: #ffffff !important;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+        }
+
+        #stella-trade-launcher-fallback .stella-launcher-badge {
+          position: absolute !important;
+          top: -7px !important;
+          right: -7px !important;
+          min-width: 22px !important;
+          height: 22px !important;
+          padding: 0 6px !important;
+          font-size: 12px !important;
+          border: 2px solid rgba(30, 38, 70, 0.96) !important;
+          box-sizing: border-box !important;
+        }
+
+        #stella-trade-launcher-fallback .stella-launcher-alert {
+          position: absolute !important;
+          top: -7px !important;
+          left: -7px !important;
+          min-width: 22px !important;
+          height: 22px !important;
+          padding: 0 6px !important;
+          font-size: 12px !important;
+          border: 2px solid rgba(30, 38, 70, 0.96) !important;
+          box-sizing: border-box !important;
         }
 
         #stella-sync-toast {
@@ -2469,12 +2532,6 @@
           left: 12px !important;
           right: 12px !important;
           width: auto !important;
-        }
-
-        #stella-trade-launcher-fallback {
-          top: 12px !important;
-          left: 12px !important;
-          right: auto !important;
         }
       }
     `;
