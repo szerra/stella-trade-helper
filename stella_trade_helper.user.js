@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.11
+// @version      1.6.12
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.11] 腳本已載入');
+  console.log('[StellaTrade 1.6.12] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -286,6 +286,17 @@
     );
   }
 
+  function getPortDefByName(portName) {
+    const cleanPort = normPort(portName);
+    return ports.find(def => def.port === cleanPort) || null;
+  }
+
+  function isAllowedItemForPort(portName, itemName) {
+    const portDef = getPortDefByName(portName);
+    const cleanItem = normItem(itemName);
+    return !!portDef && portDef.items.includes(cleanItem);
+  }
+
   function cleanMarketDataForCompare(data) {
     const cleaned = {};
     const source = data && typeof data === 'object' ? data : {};
@@ -298,6 +309,7 @@
       for (const [rawItem, info] of Object.entries(items)) {
         const item = normItem(rawItem);
         if (isInvalidItemName(item)) continue;
+        if (!isAllowedItemForPort(port, item)) continue;
         const safe = info && typeof info === 'object' ? info : {};
         const count = num(safe.count ?? safe.quantity ?? safe.stock ?? safe.amount);
         cleaned[port][item] = {
@@ -347,6 +359,13 @@
           delete items[itemName];
           changed = true;
         }
+
+        if (!isAllowedItemForPort(portName, cleanItem)) {
+          delete items[cleanItem];
+          changed = true;
+          continue;
+        }
+
         const finalInfo = items[cleanItem];
         if (finalInfo && typeof finalInfo === 'object' && 'updater' in finalInfo) {
           delete finalInfo.updater;
@@ -460,7 +479,7 @@
   }
 
   function extractItemNameByKnownList(text, portDef) {
-    const candidates = [...new Set([...portDef.items, ...allKnownItems()])];
+    const candidates = [...new Set(portDef.items)];
     for (const item of candidates) {
       if (aliasesForItem(item).some(alias => text.includes(alias))) return normItem(item);
     }
@@ -504,7 +523,9 @@
 
       let itemName = extractItemNameByKnownList(text, portDef);
       if (!itemName) itemName = extractItemNameFallback(text);
+      itemName = normItem(itemName);
       if (!itemName || isInvalidItemName(itemName)) continue;
+      if (!portDef.items.includes(itemName)) continue;
 
       const info = {
         name: itemName,
@@ -557,6 +578,7 @@
 
     for (const good of goods) {
       const itemName = normItem(good.name);
+      if (!portDef.items.includes(itemName)) continue;
       const oldInfo = data[portDef.port][itemName] || {};
       const newInfo = {
         count: good.count,
@@ -710,6 +732,7 @@
             for (const [item, info] of Object.entries(items || {})) {
               const cleanItem = normItem(item);
               if (isInvalidItemName(cleanItem)) continue;
+              if (!isAllowedItemForPort(cleanPort, cleanItem)) continue;
 
               const count = num(info.count ?? info.quantity ?? info.stock ?? info.amount);
               if (count === null) continue;
@@ -1399,7 +1422,7 @@
   function renderDetailGoods(portName, schedule) {
     const settings = readSettings();
     const data = ensureData();
-    const entries = Object.entries(data[portName] || {}).filter(([name]) => !isInvalidItemName(name));
+    const entries = Object.entries(data[portName] || {}).filter(([name]) => !isInvalidItemName(name) && isAllowedItemForPort(portName, name));
     const travelHtml = settings.showTravelEstimate ? renderTravel(schedule) : '';
 
     return `
