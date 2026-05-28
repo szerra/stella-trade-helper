@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.13
+// @version      1.6.14
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.13] 腳本已載入');
+  console.log('[StellaTrade 1.6.14] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -196,7 +196,17 @@
   }
 
   function defaultInfo() {
-    return { count: 0, max: null, time: '尚未更新', price: '-', restock: '-' };
+    return {
+      count: 0,
+      max: null,
+      time: '尚未更新',
+      price: '-',
+      restock: '-',
+      lastRestockAt: '',
+      soldOutAt: '',
+      estimatedRestockAt: '',
+      estimateStatus: 'unknown'
+    };
   }
 
   function defaultData() {
@@ -588,14 +598,16 @@
     if (!data[portDef.port]) data[portDef.port] = {};
 
     const time = nowText();
+    const observedAtMs = Date.now();
     const uploadGoods = [];
     let changed = 0;
 
     for (const good of goods) {
       const itemName = normItem(good.name);
       if (!portDef.items.includes(itemName)) continue;
+
       const oldInfo = data[portDef.port][itemName] || {};
-      const newInfo = {
+      const baseInfo = {
         count: good.count,
         max: good.max,
         time,
@@ -603,9 +615,13 @@
         restock: good.restock || oldInfo.restock || '-'
       };
 
+      const newInfo = applyRestockEstimate(oldInfo, baseInfo, observedAtMs);
+
       if (!data[portDef.port][itemName] || infoChanged(oldInfo, newInfo)) {
         data[portDef.port][itemName] = newInfo;
         changed++;
+      } else {
+        data[portDef.port][itemName] = Object.assign({}, oldInfo, newInfo);
       }
 
       uploadGoods.push({
@@ -618,7 +634,11 @@
         price: newInfo.price,
         restock: newInfo.restock,
         restockTime: newInfo.restock,
-        nextRestock: newInfo.restock
+        nextRestock: newInfo.restock,
+        lastRestockAt: newInfo.lastRestockAt || '',
+        soldOutAt: newInfo.soldOutAt || '',
+        estimatedRestockAt: newInfo.estimatedRestockAt || '',
+        estimateStatus: newInfo.estimateStatus || 'unknown'
       });
     }
 
@@ -752,13 +772,20 @@
               const count = num(info.count ?? info.quantity ?? info.stock ?? info.amount);
               if (count === null) continue;
 
-              localData[cleanPort][cleanItem] = {
+              const oldInfo = localData[cleanPort][cleanItem] || {};
+              const incomingInfo = {
                 count,
-                max: num(info.max) ?? localData[cleanPort][cleanItem]?.max ?? null,
+                max: num(info.max) ?? oldInfo.max ?? null,
                 time: info.time || '未知',
                 price: info.price || '-',
-                restock: info.restockTime || info.nextRestock || info.restock || '-'
+                restock: info.restockTime || info.nextRestock || info.restock || '-',
+                lastRestockAt: info.lastRestockAt || oldInfo.lastRestockAt || '',
+                soldOutAt: info.soldOutAt || oldInfo.soldOutAt || '',
+                estimatedRestockAt: info.estimatedRestockAt || oldInfo.estimatedRestockAt || '',
+                estimateStatus: info.estimateStatus || oldInfo.estimateStatus || 'unknown'
               };
+
+              localData[cleanPort][cleanItem] = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
               hasUpdate = true;
             }
           }
@@ -897,6 +924,124 @@
     const count = Number(info?.count || 0);
     const max = Number(info?.max || 0);
     return max > 0 ? `${count}/${max}` : `${count}`;
+  }
+
+  function toTimestamp(value) {
+    if (value === null || value === undefined || value === '') return null;
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value > 100000000000 ? value : value * 1000;
+    }
+
+    const text = String(value).trim();
+    if (!text) return null;
+
+    if (/^\d+$/.test(text)) {
+      const n = Number(text);
+      return n > 100000000000 ? n : n * 1000;
+    }
+
+    const parsed = Date.parse(text.replace(/\//g, '-'));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function restockEstimateText(info) {
+    const count = Number(info?.count || 0);
+    const estimatedAt = toTimestamp(info?.estimatedRestockAt);
+    const status = String(info?.estimateStatus || '');
+
+    if (status === 'estimated' && estimatedAt) {
+      const now = new Date();
+      const text = formatClock(new Date(estimatedAt), now);
+      return estimatedAt < Date.now() ? `已過 ${text}` : `約 ${text}`;
+    }
+
+    if (count <= 0) {
+      return '資料不足';
+    }
+
+    return '尚未售罄';
+  }
+
+  function normalizeRestockTrackingFields(info) {
+    const output = Object.assign({}, info || {});
+
+    output.lastRestockAt = toTimestamp(output.lastRestockAt) || '';
+    output.soldOutAt = toTimestamp(output.soldOutAt) || '';
+    output.estimatedRestockAt = toTimestamp(output.estimatedRestockAt) || '';
+    output.estimateStatus = output.estimateStatus || 'unknown';
+
+    return output;
+  }
+
+  function applyRestockEstimate(oldInfo, newInfo, observedAtMs = Date.now()) {
+    const oldData = normalizeRestockTrackingFields(oldInfo || {});
+    const incoming = normalizeRestockTrackingFields(newInfo || {});
+    const output = Object.assign({}, newInfo);
+
+    const count = Number(output.count || 0);
+    const max = Number(output.max || oldData.max || 0);
+    const oldCount = oldInfo && oldInfo.count !== undefined ? Number(oldInfo.count) : null;
+
+    let lastRestockAt = incoming.lastRestockAt || oldData.lastRestockAt || '';
+    let soldOutAt = incoming.soldOutAt || oldData.soldOutAt || '';
+    let estimatedRestockAt = incoming.estimatedRestockAt || oldData.estimatedRestockAt || '';
+    let estimateStatus = incoming.estimateStatus || oldData.estimateStatus || 'unknown';
+
+    if (max > 0) {
+      const isFull = count >= max;
+      const roseFromZero = oldCount !== null && oldCount <= 0 && count > 0;
+      const jumpedUpNearFull = oldCount !== null && count > oldCount && count >= Math.floor(max * 0.8);
+
+      if (isFull || roseFromZero || jumpedUpNearFull) {
+        lastRestockAt = observedAtMs;
+        soldOutAt = '';
+        estimatedRestockAt = '';
+        estimateStatus = 'selling';
+      }
+
+      if (count <= 0) {
+        if (oldCount !== null && oldCount > 0) {
+          soldOutAt = observedAtMs;
+
+          if (lastRestockAt && lastRestockAt < soldOutAt) {
+            estimatedRestockAt = soldOutAt + Math.round((soldOutAt - lastRestockAt) / 2);
+            estimateStatus = 'estimated';
+          } else {
+            estimatedRestockAt = '';
+            estimateStatus = 'insufficient';
+          }
+        } else if (estimatedRestockAt) {
+          estimateStatus = 'estimated';
+        } else if (!soldOutAt) {
+          soldOutAt = observedAtMs;
+          estimateStatus = 'insufficient';
+        }
+      } else {
+        if (!lastRestockAt && isFull) lastRestockAt = observedAtMs;
+        if (estimateStatus === 'estimated' || estimateStatus === 'insufficient' || estimateStatus === 'unknown') {
+          estimateStatus = 'selling';
+        }
+        soldOutAt = '';
+        estimatedRestockAt = '';
+      }
+    } else {
+      if (count <= 0) {
+        estimateStatus = estimatedRestockAt ? 'estimated' : 'insufficient';
+        if (!soldOutAt) soldOutAt = observedAtMs;
+      } else {
+        estimateStatus = 'selling';
+        soldOutAt = '';
+        estimatedRestockAt = '';
+      }
+    }
+
+    output.lastRestockAt = lastRestockAt || '';
+    output.soldOutAt = soldOutAt || '';
+    output.estimatedRestockAt = estimatedRestockAt || '';
+    output.estimateStatus = estimateStatus || 'unknown';
+
+    return output;
   }
 
   function stockColor(count, max) {
@@ -1110,7 +1255,7 @@
       <div class="stella-good-row ${low ? 'low' : ''}">
         <div class="stella-good-main">
           <div class="stella-good-name">${escapeHtml(itemName)}</div>
-          <div class="stella-good-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}</div>
+          <div class="stella-good-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}　推估補貨：${escapeHtml(restockEstimateText(info))}</div>
         </div>
         <div class="stella-good-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</div>
         <div class="stella-good-price">${escapeHtml(price)}</div>
@@ -1457,7 +1602,7 @@
                   <span class="stella-detail-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</span>
                   <span class="stella-detail-price">${escapeHtml(price)}</span>
                 </div>
-                <div class="stella-detail-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}</div>
+                <div class="stella-detail-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}　推估：${escapeHtml(restockEstimateText(info))}</div>
               </div>
             `;
           }).join('') || '<div class="stella-detail-empty">目前沒有同步資料</div>'}
