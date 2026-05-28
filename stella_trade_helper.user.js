@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.14
+// @version      1.6.15
 // @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.14] 腳本已載入');
+  console.log('[StellaTrade 1.6.15] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -205,7 +205,11 @@
       lastRestockAt: '',
       soldOutAt: '',
       estimatedRestockAt: '',
-      estimateStatus: 'unknown'
+      estimateStatus: 'unknown',
+      restockAnchorAt: '',
+      restockAnchorCount: '',
+      restockAnchorMax: '',
+      estimateBasis: ''
     };
   }
 
@@ -638,7 +642,11 @@
         lastRestockAt: newInfo.lastRestockAt || '',
         soldOutAt: newInfo.soldOutAt || '',
         estimatedRestockAt: newInfo.estimatedRestockAt || '',
-        estimateStatus: newInfo.estimateStatus || 'unknown'
+        estimateStatus: newInfo.estimateStatus || 'unknown',
+        restockAnchorAt: newInfo.restockAnchorAt || '',
+        restockAnchorCount: newInfo.restockAnchorCount || '',
+        restockAnchorMax: newInfo.restockAnchorMax || '',
+        estimateBasis: newInfo.estimateBasis || ''
       });
     }
 
@@ -782,7 +790,11 @@
                 lastRestockAt: info.lastRestockAt || oldInfo.lastRestockAt || '',
                 soldOutAt: info.soldOutAt || oldInfo.soldOutAt || '',
                 estimatedRestockAt: info.estimatedRestockAt || oldInfo.estimatedRestockAt || '',
-                estimateStatus: info.estimateStatus || oldInfo.estimateStatus || 'unknown'
+                estimateStatus: info.estimateStatus || oldInfo.estimateStatus || 'unknown',
+                restockAnchorAt: info.restockAnchorAt || oldInfo.restockAnchorAt || '',
+                restockAnchorCount: info.restockAnchorCount || oldInfo.restockAnchorCount || '',
+                restockAnchorMax: info.restockAnchorMax || oldInfo.restockAnchorMax || '',
+                estimateBasis: info.estimateBasis || oldInfo.estimateBasis || ''
               };
 
               localData[cleanPort][cleanItem] = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
@@ -949,11 +961,18 @@
     const count = Number(info?.count || 0);
     const estimatedAt = toTimestamp(info?.estimatedRestockAt);
     const status = String(info?.estimateStatus || '');
+    const basis = String(info?.estimateBasis || '').trim();
 
-    if (status === 'estimated' && estimatedAt) {
+    if ((status === 'estimated' || status === 'inferred') && estimatedAt) {
       const now = new Date();
       const text = formatClock(new Date(estimatedAt), now);
-      return estimatedAt < Date.now() ? `已過 ${text}` : `約 ${text}`;
+      const prefix = estimatedAt < Date.now() ? `已過 ${text}` : `約 ${text}`;
+
+      if (status === 'inferred') {
+        return basis ? `${prefix}（${basis}）` : `${prefix}（反推）`;
+      }
+
+      return basis ? `${prefix}（${basis}）` : `${prefix}（補滿後售罄）`;
     }
 
     if (count <= 0) {
@@ -970,8 +989,31 @@
     output.soldOutAt = toTimestamp(output.soldOutAt) || '';
     output.estimatedRestockAt = toTimestamp(output.estimatedRestockAt) || '';
     output.estimateStatus = output.estimateStatus || 'unknown';
+    output.restockAnchorAt = toTimestamp(output.restockAnchorAt) || '';
+    output.restockAnchorCount = num(output.restockAnchorCount) ?? '';
+    output.restockAnchorMax = num(output.restockAnchorMax) ?? '';
+    output.estimateBasis = output.estimateBasis || '';
 
     return output;
+  }
+
+  function shouldUseAnchorForInference(anchorAt, anchorCount, max, soldOutAt) {
+    if (!anchorAt || !anchorCount || !max || !soldOutAt) return false;
+    if (anchorAt >= soldOutAt) return false;
+    if (anchorCount <= 0 || max <= 0) return false;
+
+    const ratio = anchorCount / max;
+    return ratio >= 0.7;
+  }
+
+  function inferEstimatedRestockAtFromAnchor(anchorAt, anchorCount, max, soldOutAt) {
+    if (!shouldUseAnchorForInference(anchorAt, anchorCount, max, soldOutAt)) return '';
+
+    const observedSellDuration = soldOutAt - anchorAt;
+    if (observedSellDuration <= 0) return '';
+
+    const fullSellDuration = observedSellDuration * (max / anchorCount);
+    return soldOutAt + Math.round(fullSellDuration / 2);
   }
 
   function applyRestockEstimate(oldInfo, newInfo, observedAtMs = Date.now()) {
@@ -980,7 +1022,7 @@
     const output = Object.assign({}, newInfo);
 
     const count = Number(output.count || 0);
-    const max = Number(output.max || oldData.max || 0);
+    const max = Number(output.max || oldData.max || incoming.restockAnchorMax || 0);
     const oldCount = oldInfo && oldInfo.count !== undefined ? Number(oldInfo.count) : null;
 
     let lastRestockAt = incoming.lastRestockAt || oldData.lastRestockAt || '';
@@ -988,46 +1030,76 @@
     let estimatedRestockAt = incoming.estimatedRestockAt || oldData.estimatedRestockAt || '';
     let estimateStatus = incoming.estimateStatus || oldData.estimateStatus || 'unknown';
 
+    let restockAnchorAt = incoming.restockAnchorAt || oldData.restockAnchorAt || '';
+    let restockAnchorCount = incoming.restockAnchorCount || oldData.restockAnchorCount || '';
+    let restockAnchorMax = incoming.restockAnchorMax || oldData.restockAnchorMax || '';
+    let estimateBasis = incoming.estimateBasis || oldData.estimateBasis || '';
+
     if (max > 0) {
       const isFull = count >= max;
+      const isHighEnoughForInference = count > 0 && count >= Math.ceil(max * 0.7);
       const roseFromZero = oldCount !== null && oldCount <= 0 && count > 0;
-      const jumpedUpNearFull = oldCount !== null && count > oldCount && count >= Math.floor(max * 0.8);
+      const stockIncreased = oldCount !== null && count > oldCount;
 
-      if (isFull || roseFromZero || jumpedUpNearFull) {
-        lastRestockAt = observedAtMs;
+      if (count > 0) {
+        if (isFull) {
+          // 看到滿貨，這是最可靠的基準。
+          lastRestockAt = observedAtMs;
+          restockAnchorAt = observedAtMs;
+          restockAnchorCount = max;
+          restockAnchorMax = max;
+          estimateBasis = '補滿後售罄';
+        } else if (isHighEnoughForInference) {
+          // 沒有剛好看到滿貨，但看到 70% 以上庫存，之後售罄時可用這筆反推。
+          const shouldReplaceAnchor =
+            !restockAnchorAt ||
+            !restockAnchorCount ||
+            count > Number(restockAnchorCount || 0) ||
+            roseFromZero ||
+            stockIncreased;
+
+          if (shouldReplaceAnchor) {
+            restockAnchorAt = observedAtMs;
+            restockAnchorCount = count;
+            restockAnchorMax = max;
+            estimateBasis = `${count}/${max} 反推`;
+          }
+        }
+
         soldOutAt = '';
         estimatedRestockAt = '';
-        estimateStatus = 'selling';
+
+        if (estimateStatus === 'estimated' || estimateStatus === 'inferred' || estimateStatus === 'insufficient' || estimateStatus === 'unknown') {
+          estimateStatus = 'selling';
+        }
       }
 
       if (count <= 0) {
-        if (oldCount !== null && oldCount > 0) {
+        if ((oldCount !== null && oldCount > 0) || !soldOutAt) {
           soldOutAt = observedAtMs;
+        }
 
-          if (lastRestockAt && lastRestockAt < soldOutAt) {
-            estimatedRestockAt = soldOutAt + Math.round((soldOutAt - lastRestockAt) / 2);
-            estimateStatus = 'estimated';
-          } else {
-            estimatedRestockAt = '';
-            estimateStatus = 'insufficient';
-          }
-        } else if (estimatedRestockAt) {
+        if (lastRestockAt && lastRestockAt < soldOutAt) {
+          // 有看到滿貨後售罄，可信度最高。
+          estimatedRestockAt = soldOutAt + Math.round((soldOutAt - lastRestockAt) / 2);
           estimateStatus = 'estimated';
-        } else if (!soldOutAt) {
-          soldOutAt = observedAtMs;
+          estimateBasis = '補滿後售罄';
+        } else if (shouldUseAnchorForInference(restockAnchorAt, restockAnchorCount, max, soldOutAt)) {
+          // 沒看到滿貨，但有高庫存觀測點，用賣出速度反推完整售罄週期。
+          estimatedRestockAt = inferEstimatedRestockAtFromAnchor(restockAnchorAt, restockAnchorCount, max, soldOutAt);
+          estimateStatus = estimatedRestockAt ? 'inferred' : 'insufficient';
+          estimateBasis = estimatedRestockAt ? `${restockAnchorCount}/${max} 反推` : '';
+        } else if (estimatedRestockAt) {
+          estimateStatus = estimateStatus === 'inferred' ? 'inferred' : 'estimated';
+        } else {
+          estimatedRestockAt = '';
           estimateStatus = 'insufficient';
+          estimateBasis = '';
         }
-      } else {
-        if (!lastRestockAt && isFull) lastRestockAt = observedAtMs;
-        if (estimateStatus === 'estimated' || estimateStatus === 'insufficient' || estimateStatus === 'unknown') {
-          estimateStatus = 'selling';
-        }
-        soldOutAt = '';
-        estimatedRestockAt = '';
       }
     } else {
       if (count <= 0) {
-        estimateStatus = estimatedRestockAt ? 'estimated' : 'insufficient';
+        estimateStatus = estimatedRestockAt ? estimateStatus || 'estimated' : 'insufficient';
         if (!soldOutAt) soldOutAt = observedAtMs;
       } else {
         estimateStatus = 'selling';
@@ -1040,6 +1112,10 @@
     output.soldOutAt = soldOutAt || '';
     output.estimatedRestockAt = estimatedRestockAt || '';
     output.estimateStatus = estimateStatus || 'unknown';
+    output.restockAnchorAt = restockAnchorAt || '';
+    output.restockAnchorCount = restockAnchorCount || '';
+    output.restockAnchorMax = restockAnchorMax || '';
+    output.estimateBasis = estimateBasis || '';
 
     return output;
   }
