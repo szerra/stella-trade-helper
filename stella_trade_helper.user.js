@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.24
-// @description  大陸版：雲端直接回傳推估補貨文字，修正試算表已有推估但面板仍顯示資料不足。
+// @version      1.6.25
+// @description  大陸版：修正面板渲染前清理資料時遺失推估補貨欄位，讓試算表已有推估時間能正確顯示。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 大陸版 1.6.24] 腳本已載入');
+  console.log('[StellaTrade 大陸版 1.6.25] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -345,12 +345,26 @@
         if (!isAllowedItemForPort(port, item)) continue;
         const safe = info && typeof info === 'object' ? info : {};
         const count = num(safe.count ?? safe.quantity ?? safe.stock ?? safe.amount);
+        // 1.6.25 修正：
+        // 這個函式原本只保留 count/max/price/restock/time，
+        // 導致雲端同步進來的 estimatedRestockAt / estimateStatus / estimateBasis
+        // 在面板渲染前被清掉，所以畫面一直顯示「推估補貨：資料不足」。
+        // 現在保留完整補貨推估欄位，面板才能正確顯示雲端已有的推估時間。
         cleaned[port][item] = {
           count: count ?? 0,
           max: num(safe.max),
           price: safe.price || '-',
           restock: safe.restockTime || safe.nextRestock || safe.restock || '-',
-          time: safe.time || '未知'
+          time: safe.time || '未知',
+          lastRestockAt: safe.lastRestockAt || '',
+          soldOutAt: safe.soldOutAt || '',
+          estimatedRestockAt: safe.estimatedRestockAt || '',
+          estimateStatus: safe.estimateStatus || 'unknown',
+          restockAnchorAt: safe.restockAnchorAt || '',
+          restockAnchorCount: safe.restockAnchorCount || '',
+          restockAnchorMax: safe.restockAnchorMax || '',
+          estimateBasis: safe.estimateBasis || '',
+          estimateText: safe.estimateText || safe.restockEstimateText || safe.estimatedRestockText || ''
         };
       }
     }
