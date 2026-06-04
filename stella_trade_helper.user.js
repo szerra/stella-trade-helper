@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.22
-// @description  大陸版：修正雲端推估補貨時間已存在但面板仍顯示資料不足；保留原本同步、補貨反推與手機版功能。
+// @version      1.6.23
+// @description  大陸版：強制採用雲端推估補貨欄位，修正試算表有推估資料但面板仍顯示資料不足。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 大陸版 1.6.22] 腳本已載入');
+  console.log('[StellaTrade 大陸版 1.6.23] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -800,7 +800,38 @@
                 estimateBasis: info.estimateBasis || oldInfo.estimateBasis || ''
               };
 
-              localData[cleanPort][cleanItem] = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
+              const mergedInfo = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
+
+              // 1.6.23 修正：
+              // 若雲端試算表已經有「推估補貨時間 / 推估狀態 / 推估依據」，
+              // 以前可能會被本機重新推算流程或舊快取蓋掉，導致面板仍顯示「資料不足」。
+              // 這裡改成以雲端欄位為準，強制寫回本機資料。
+              if (info.estimatedRestockAt) {
+                const cloudEstimatedAt = toTimestamp(info.estimatedRestockAt);
+                if (cloudEstimatedAt) mergedInfo.estimatedRestockAt = cloudEstimatedAt;
+              }
+              if (info.estimateStatus) mergedInfo.estimateStatus = String(info.estimateStatus || 'unknown');
+              if (info.estimateBasis) mergedInfo.estimateBasis = String(info.estimateBasis || '');
+              if (info.soldOutAt) {
+                const cloudSoldOutAt = toTimestamp(info.soldOutAt);
+                if (cloudSoldOutAt) mergedInfo.soldOutAt = cloudSoldOutAt;
+              }
+              if (info.lastRestockAt) {
+                const cloudLastRestockAt = toTimestamp(info.lastRestockAt);
+                if (cloudLastRestockAt) mergedInfo.lastRestockAt = cloudLastRestockAt;
+              }
+              if (info.restockAnchorAt) {
+                const cloudAnchorAt = toTimestamp(info.restockAnchorAt);
+                if (cloudAnchorAt) mergedInfo.restockAnchorAt = cloudAnchorAt;
+              }
+              if (info.restockAnchorCount !== undefined && info.restockAnchorCount !== '') {
+                mergedInfo.restockAnchorCount = num(info.restockAnchorCount) ?? mergedInfo.restockAnchorCount;
+              }
+              if (info.restockAnchorMax !== undefined && info.restockAnchorMax !== '') {
+                mergedInfo.restockAnchorMax = num(info.restockAnchorMax) ?? mergedInfo.restockAnchorMax;
+              }
+
+              localData[cleanPort][cleanItem] = mergedInfo;
               hasUpdate = true;
             }
           }
