@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.15
-// @description  跑商情報面板：左側入口按鈕、變化/概覽/港口/設定面板、雲端同步狀態與同步失敗提醒。
+// @version      1.6.22
+// @description  大陸版：修正雲端推估補貨時間已存在但面板仍顯示資料不足；保留原本同步、補貨反推與手機版功能。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.15] 腳本已載入');
+  console.log('[StellaTrade 大陸版 1.6.22] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -31,6 +31,7 @@
   const CLICK_UPDATE_DELAY = 1200;
   const RETURN_UPDATE_COOLDOWN = 2500;
   const CLOUD_PULL_INTERVAL = 90 * 1000;
+  const AUTO_PUBLISH_INTERVAL = 5 * 60 * 1000;
   const TOAST_COOLDOWN = 60 * 1000;
 
   const DEFAULT_SETTINGS = {
@@ -54,8 +55,10 @@
   let panelRenderTimer = null;
   let launcherTimer = null;
   let toastTimer = null;
+  let autoPublishTimer = null;
   let lastClickUpdateAt = 0;
   let lastCloudPullAt = 0;
+  let lastAutoPublishAt = 0;
   let lastToastAt = 0;
   let started = false;
   let observerReady = false;
@@ -946,14 +949,44 @@
     }
 
     const text = String(value).trim();
-    if (!text) return null;
+    if (!text || text === '-' || text === '尚未更新' || text === '未知' || text === '資料不足') return null;
 
     if (/^\d+$/.test(text)) {
       const n = Number(text);
       return n > 100000000000 ? n : n * 1000;
     }
 
-    const parsed = Date.parse(text.replace(/\//g, '-'));
+    // 支援 Google Apps Script 回傳的 yyyy/MM/dd HH:mm。
+    let m = text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      const [, y, mo, d, h, mi, s] = m;
+      const local = new Date(
+        Number(y),
+        Number(mo) - 1,
+        Number(d),
+        Number(h),
+        Number(mi),
+        Number(s || 0)
+      ).getTime();
+      return Number.isFinite(local) ? local : null;
+    }
+
+    // 支援 yyyy-MM-dd HH:mm。
+    m = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      const [, y, mo, d, h, mi, s] = m;
+      const local = new Date(
+        Number(y),
+        Number(mo) - 1,
+        Number(d),
+        Number(h),
+        Number(mi),
+        Number(s || 0)
+      ).getTime();
+      return Number.isFinite(local) ? local : null;
+    }
+
+    const parsed = Date.parse(text);
     return Number.isFinite(parsed) ? parsed : null;
   }
 
@@ -963,12 +996,26 @@
     const status = String(info?.estimateStatus || '');
     const basis = String(info?.estimateBasis || '').trim();
 
-    if ((status === 'estimated' || status === 'inferred') && estimatedAt) {
+    // 1.6.22 修正：
+    // 雲端 / Apps Script 有時已經算出 estimatedRestockAt，
+    // 但 estimateStatus 可能被舊本機快取蓋成 unknown，導致面板顯示「資料不足」。
+    // 只要有有效推估時間，且商品已售罄或有推估依據，就優先顯示雲端推估。
+    const shouldShowEstimate =
+      !!estimatedAt &&
+      (
+        status === 'estimated' ||
+        status === 'inferred' ||
+        count <= 0 ||
+        !!basis
+      );
+
+    if (shouldShowEstimate) {
       const now = new Date();
       const text = formatClock(new Date(estimatedAt), now);
       const prefix = estimatedAt < Date.now() ? `已過 ${text}` : `約 ${text}`;
+      const isInferred = status === 'inferred' || /反推/.test(basis);
 
-      if (status === 'inferred') {
+      if (isInferred) {
         return basis ? `${prefix}（${basis}）` : `${prefix}（反推）`;
       }
 
@@ -1927,6 +1974,19 @@
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
+  function autoPublishCurrentVisibleData() {
+    lastAutoPublishAt = Date.now();
+
+    const ok = scrapeCurrentVisibleData({
+      upload: true,
+      silent: true
+    });
+
+    if (ok) {
+      console.log('[StellaTrade] 每 5 分鐘自動掃描並公布目前港口商品資料');
+    }
+  }
+
   function installStyles() {
     if (document.getElementById('stella-trade-style')) return;
 
@@ -2855,6 +2915,11 @@
       ensureLauncherButton();
       if (Date.now() - lastCloudPullAt >= CLOUD_PULL_INTERVAL) fetchCloudData({ silent: true });
     }, CLOUD_PULL_INTERVAL);
+
+    lastAutoPublishAt = Date.now();
+    autoPublishTimer = setInterval(() => {
+      autoPublishCurrentVisibleData();
+    }, AUTO_PUBLISH_INTERVAL);
   }
 
   if (document.readyState === 'loading') {
