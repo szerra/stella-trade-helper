@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.23
-// @description  大陸版：強制採用雲端推估補貨欄位，修正試算表有推估資料但面板仍顯示資料不足。
+// @version      1.6.24
+// @description  大陸版：雲端直接回傳推估補貨文字，修正試算表已有推估但面板仍顯示資料不足。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 大陸版 1.6.23] 腳本已載入');
+  console.log('[StellaTrade 大陸版 1.6.24] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -212,7 +212,8 @@
       restockAnchorAt: '',
       restockAnchorCount: '',
       restockAnchorMax: '',
-      estimateBasis: ''
+      estimateBasis: '',
+      estimateText: ''
     };
   }
 
@@ -649,7 +650,8 @@
         restockAnchorAt: newInfo.restockAnchorAt || '',
         restockAnchorCount: newInfo.restockAnchorCount || '',
         restockAnchorMax: newInfo.restockAnchorMax || '',
-        estimateBasis: newInfo.estimateBasis || ''
+        estimateBasis: newInfo.estimateBasis || '',
+        estimateText: newInfo.estimateText || ''
       });
     }
 
@@ -797,7 +799,8 @@
                 restockAnchorAt: info.restockAnchorAt || oldInfo.restockAnchorAt || '',
                 restockAnchorCount: info.restockAnchorCount || oldInfo.restockAnchorCount || '',
                 restockAnchorMax: info.restockAnchorMax || oldInfo.restockAnchorMax || '',
-                estimateBasis: info.estimateBasis || oldInfo.estimateBasis || ''
+                estimateBasis: info.estimateBasis || oldInfo.estimateBasis || '',
+                estimateText: info.estimateText || info.restockEstimateText || info.estimatedRestockText || oldInfo.estimateText || ''
               };
 
               const mergedInfo = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
@@ -812,6 +815,10 @@
               }
               if (info.estimateStatus) mergedInfo.estimateStatus = String(info.estimateStatus || 'unknown');
               if (info.estimateBasis) mergedInfo.estimateBasis = String(info.estimateBasis || '');
+              const cloudEstimateText = String(info.estimateText || info.restockEstimateText || info.estimatedRestockText || '').trim();
+              if (cloudEstimateText && cloudEstimateText !== '-' && cloudEstimateText !== '資料不足') {
+                mergedInfo.estimateText = cloudEstimateText;
+              }
               if (info.soldOutAt) {
                 const cloudSoldOutAt = toTimestamp(info.soldOutAt);
                 if (cloudSoldOutAt) mergedInfo.soldOutAt = cloudSoldOutAt;
@@ -1026,6 +1033,13 @@
     const estimatedAt = toTimestamp(info?.estimatedRestockAt);
     const status = String(info?.estimateStatus || '');
     const basis = String(info?.estimateBasis || '').trim();
+    const cloudText = String(info?.estimateText || info?.restockEstimateText || info?.estimatedRestockText || '').trim();
+
+    // 1.6.24 修正：Apps Script 直接回傳預先格式化的 estimateText。
+    // 只要這個文字存在，就先使用它，避免 timestamp/status 被本機快取影響。
+    if (cloudText && cloudText !== '-' && cloudText !== '資料不足' && cloudText !== '尚未售罄') {
+      return cloudText;
+    }
 
     // 1.6.22 修正：
     // 雲端 / Apps Script 有時已經算出 estimatedRestockAt，
@@ -1071,6 +1085,7 @@
     output.restockAnchorCount = num(output.restockAnchorCount) ?? '';
     output.restockAnchorMax = num(output.restockAnchorMax) ?? '';
     output.estimateBasis = output.estimateBasis || '';
+    output.estimateText = output.estimateText || '';
 
     return output;
   }
@@ -1194,6 +1209,7 @@
     output.restockAnchorCount = restockAnchorCount || '';
     output.restockAnchorMax = restockAnchorMax || '';
     output.estimateBasis = estimateBasis || '';
+    output.estimateText = output.estimateText || '';
 
     return output;
   }
