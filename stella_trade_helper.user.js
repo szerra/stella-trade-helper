@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.26
-// @description  大陸版：修正面板渲染前清理資料時遺失推估補貨欄位，讓試算表已有推估時間能正確顯示。
+// @version      1.6.27
+// @description  修正面板渲染前清理資料時遺失推估補貨欄位，讓試算表已有推估時間能正確顯示。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 大陸版 1.6.26] 腳本已載入');
+  console.log('[StellaTrade 大陸版 1.6.27] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
