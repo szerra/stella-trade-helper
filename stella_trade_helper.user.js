@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.34
-// @description  修正試算表寫入與同步狀態提示，固定雲端網址，不轉發其他試算表。
+// @version      1.6.35
+// @description  加強雲端同步錯誤診斷，固定雲端網址，不轉發其他試算表。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.34] 腳本已載入');
+  console.log('[StellaTrade 1.6.35] 腳本已載入');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -70,10 +70,13 @@
   let observerReady = false;
   let listenersReady = false;
 
+  const LAST_SYNC_ERROR_KEY = 'stella_trade_last_sync_error';
+
   const syncState = {
     ok: null,
     lastSuccessAt: null,
     lastFailureAt: null,
+    lastError: localStorage.getItem(LAST_SYNC_ERROR_KEY) || '',
   };
 
   const portNormalize = {
@@ -694,17 +697,33 @@
     return true;
   }
 
+  function stringifyErrorDetail(detail) {
+    if (detail === null || detail === undefined || detail === '') return '';
+    if (typeof detail === 'string') return detail;
+    if (detail instanceof Error) return detail.message || String(detail);
+    try {
+      return JSON.stringify(detail, Object.getOwnPropertyNames(detail)).slice(0, 500);
+    } catch (error) {
+      return String(detail);
+    }
+  }
+
   function markSyncSuccess() {
     syncState.ok = true;
     syncState.lastSuccessAt = Date.now();
+    syncState.lastError = '';
+    localStorage.removeItem(LAST_SYNC_ERROR_KEY);
     scheduleInject();
     schedulePanelRender();
     scheduleLauncherUpdate();
   }
 
   function markSyncFailure(type = 'sync', detail = '') {
+    const detailText = stringifyErrorDetail(detail);
     syncState.ok = false;
     syncState.lastFailureAt = Date.now();
+    syncState.lastError = detailText ? `${type}: ${detailText}` : type;
+    localStorage.setItem(LAST_SYNC_ERROR_KEY, syncState.lastError);
     console.warn('[StellaTrade] 雲端同步失敗：', type, detail || '');
 
     const settings = readSettings();
@@ -712,9 +731,9 @@
     if (settings.showToast && now - lastToastAt >= TOAST_COOLDOWN) {
       lastToastAt = now;
       if (type === 'upload') {
-        showSyncToast('⚠️ 上傳雲端失敗', '資料目前只保存在本機。請開啟梯子後重新整理，或等待下次自動同步。');
+        showSyncToast('⚠️ 上傳雲端失敗', `資料目前只保存在本機。原因：${syncState.lastError || '未知錯誤'}`);
       } else {
-        showSyncToast('⚠️ 雲端同步失敗', '請開啟梯子後重新整理，或等待下次自動同步。');
+        showSyncToast('⚠️ 雲端同步失敗', `原因：${syncState.lastError || '未知錯誤'}`);
       }
     }
 
@@ -728,13 +747,13 @@
     if (!text) return { ok: false, message: '雲端沒有回傳資料' };
 
     if (text.startsWith('<!DOCTYPE') || text.startsWith('<html') || text.startsWith('<')) {
-      return { ok: false, message: '雲端回傳 HTML，不是 JSON。請檢查部署權限。', preview: text.slice(0, 300) };
+      return { ok: false, message: '雲端回傳 HTML，不是 JSON。請檢查部署權限或是否登入驗證頁。預覽：' + text.slice(0, 120), preview: text.slice(0, 300) };
     }
 
     try {
       return { ok: true, data: JSON.parse(text) };
     } catch (error) {
-      return { ok: false, message: '雲端回傳格式不是有效 JSON', preview: text.slice(0, 300), error };
+      return { ok: false, message: '雲端回傳格式不是有效 JSON。預覽：' + text.slice(0, 120), preview: text.slice(0, 300), error };
     }
   }
 
@@ -746,7 +765,7 @@
       headers: { 'Content-Type': 'application/json' },
       onload(response) {
         if (response.status !== 200) {
-          markSyncFailure('upload', `HTTP ${response.status}`);
+          markSyncFailure('upload', `HTTP ${response.status} ${String(response.responseText || '').slice(0, 160)}`);
           return;
         }
 
@@ -798,7 +817,7 @@
       onload(response) {
         if (response.status !== 200) {
           if (!silent) console.warn('[StellaTrade] 雲端讀取失敗 HTTP', response.status);
-          markSyncFailure('download', `HTTP ${response.status}`);
+          markSyncFailure('download', `HTTP ${response.status} ${String(response.responseText || '').slice(0, 160)}`);
           return;
         }
 
@@ -916,6 +935,39 @@
       },
       onerror(error) {
         markSyncFailure('download', error);
+      }
+    });
+  }
+
+
+
+  function pingCloud() {
+    request({
+      method: 'GET',
+      url: `${getApiUrl()}?action=ping&_=${Date.now()}`,
+      headers: { Accept: 'application/json,text/plain,*/*' },
+      onload(response) {
+        if (response.status !== 200) {
+          markSyncFailure('ping', `HTTP ${response.status} ${String(response.responseText || '').slice(0, 160)}`);
+          showSyncToast('⚠️ 雲端連線測試失敗', syncState.lastError || '未知錯誤');
+          renderPanel();
+          return;
+        }
+        const parsed = parseCloudJsonResponse(response);
+        if (!parsed.ok || !parsed.data || parsed.data.status !== 'success') {
+          markSyncFailure('ping', parsed.message || 'ping 回傳不是 success');
+          showSyncToast('⚠️ 雲端連線測試失敗', syncState.lastError || '未知錯誤');
+          renderPanel();
+          return;
+        }
+        markSyncSuccess();
+        showSyncToast('✅ 雲端連線正常', `Web App 回應正常｜${parsed.data.time || ''}`);
+        renderPanel();
+      },
+      onerror(error) {
+        markSyncFailure('ping', error);
+        showSyncToast('⚠️ 雲端連線測試失敗', syncState.lastError || '未知錯誤');
+        renderPanel();
       }
     });
   }
@@ -1327,7 +1379,9 @@
     if (syncState.ok === false) {
       const time = syncState.lastFailureAt ? `　${timeOnly(syncState.lastFailureAt)}` : '';
       const prefix = compact ? '同步失敗' : '雲端同步：失敗';
-      return `<div class="stella-sync-status stella-sync-fail"><span>${prefix}${escapeHtml(time)}　請開啟梯子同步</span></div>`;
+      const error = syncState.lastError ? `｜${syncState.lastError}` : '';
+      const hint = compact ? '' : '　請看設定頁的錯誤詳情';
+      return `<div class="stella-sync-status stella-sync-fail"><span>${prefix}${escapeHtml(time)}${escapeHtml(error)}${hint}</span></div>`;
     }
     return `<div class="stella-sync-status stella-sync-wait"><span>雲端同步：確認中</span></div>`;
   }
@@ -1590,9 +1644,21 @@
           </select>
         </label>
 
+        <div class="stella-setting-row stella-diagnostic-row">
+          <div>
+            <div class="stella-setting-title">雲端診斷</div>
+            <div class="stella-setting-sub">網址：${escapeHtml(getApiUrl())}</div>
+            <div class="stella-setting-sub">狀態：${syncState.ok === true ? '正常' : syncState.ok === false ? '失敗' : '確認中'}</div>
+            <div class="stella-setting-sub">最後成功：${syncState.lastSuccessAt ? escapeHtml(new Date(syncState.lastSuccessAt).toLocaleString()) : '-'}</div>
+            <div class="stella-setting-sub">最後失敗：${syncState.lastFailureAt ? escapeHtml(new Date(syncState.lastFailureAt).toLocaleString()) : '-'}</div>
+            <div class="stella-setting-sub stella-error-detail">錯誤：${escapeHtml(syncState.lastError || '-')}</div>
+          </div>
+        </div>
+
         <div class="stella-setting-actions">
           <button class="stella-danger-btn" data-stella-action="reset-seen">重置變化紀錄</button>
           <button class="stella-small-btn" data-stella-action="manual-sync">立即同步雲端</button>
+          <button class="stella-small-btn" data-stella-action="cloud-ping">測試雲端連線</button>
         </div>
       </div>
     `;
@@ -2027,6 +2093,11 @@
     if (action === 'manual-sync') {
       const uploaded = scrapeCurrentVisibleData({ upload: true, silent: true });
       if (!uploaded) fetchCloudData({ silent: false, force: true });
+      return;
+    }
+
+    if (action === 'cloud-ping') {
+      pingCloud();
       return;
     }
   }
@@ -2633,6 +2704,11 @@
         font-size: 14px !important;
         font-weight: 950 !important;
         color: #fff !important;
+      }
+
+      .stella-error-detail {
+        word-break: break-all;
+        white-space: pre-wrap;
       }
 
       .stella-setting-sub {
