@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.35] 腳本已載入');
+  console.log('[StellaTrade 1.6.36] 腳本已載入');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
