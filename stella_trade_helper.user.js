@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.31
-// @description  修正雲端同步防護，移除跨表轉發依賴，只保留單一試算表同步。
+// @version      1.6.32
+// @description  固定雲端同步網址，避免本機舊設定覆蓋預設網址，並保留防舊資料覆蓋。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,14 +18,12 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.31] 腳本已載入');
+  console.log('[StellaTrade 1.6.32] 腳本已載入');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
-  const API_URL_OVERRIDE_KEY = 'stella_trade_cloud_api_url';
 
   function getApiUrl() {
-    const override = String(localStorage.getItem(API_URL_OVERRIDE_KEY) || '').trim();
-    return override || DEFAULT_API_URL;
+    return DEFAULT_API_URL;
   }
 
   const DATA_KEY = 'stella_real_market_data';
