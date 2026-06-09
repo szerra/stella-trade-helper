@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.33
+// @version      1.6.34
 // @description  修正試算表寫入與同步狀態提示，固定雲端網址，不轉發其他試算表。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.33] 腳本已載入');
+  console.log('[StellaTrade 1.6.34] 腳本已載入');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
