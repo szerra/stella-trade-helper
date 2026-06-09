@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.35
+// @version      1.6.36
 // @description  加強雲端同步錯誤診斷，固定雲端網址，不轉發其他試算表。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
