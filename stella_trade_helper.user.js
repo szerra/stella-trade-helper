@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.29
-// @description  加入同步版本與雲端拉取防舊資料覆蓋，避免上傳後被舊雲端資料洗回。
+// @version      1.6.31
+// @description  修正雲端同步防護，移除跨表轉發依賴，只保留單一試算表同步。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,9 +18,15 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.29] 腳本已載入');
+  console.log('[StellaTrade 1.6.31] 腳本已載入');
 
-  const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
+  const API_URL_OVERRIDE_KEY = 'stella_trade_cloud_api_url';
+
+  function getApiUrl() {
+    const override = String(localStorage.getItem(API_URL_OVERRIDE_KEY) || '').trim();
+    return override || DEFAULT_API_URL;
+  }
 
   const DATA_KEY = 'stella_real_market_data';
   const SEEN_KEY = 'stella_seen_market_data';
@@ -737,8 +743,8 @@
   function uploadToCloud(port, time, goods) {
     request({
       method: 'POST',
-      url: API_URL,
-      data: JSON.stringify({ action: 'update_v7', port: normPort(port), time, goods }),
+      url: getApiUrl(),
+      data: JSON.stringify({ action: 'update_v7', port: normPort(port), time, goods, clientObservedAt: Date.now(), syncVersion: Date.now() }),
       headers: { 'Content-Type': 'application/json' },
       onload(response) {
         if (response.status !== 200) {
@@ -754,6 +760,13 @@
 
         if (parsed.data && parsed.data.status === 'error') {
           markSyncFailure('upload', parsed.data.message || '雲端回傳 error');
+          return;
+        }
+
+        console.log('[StellaTrade] 上傳回應：', parsed.data);
+
+        if (parsed.data && Number(parsed.data.accepted || 0) === 0 && Number(parsed.data.staleSkipped || 0) > 0) {
+          markSyncFailure('upload', '雲端判定資料較舊，已略過。請確認 Apps Script 已重新部署，並確認電腦時間是否正確。');
           return;
         }
 
@@ -779,7 +792,7 @@
 
     request({
       method: 'GET',
-      url: `${API_URL}?_=${Date.now()}`,
+      url: `${getApiUrl()}?_=${Date.now()}`, 
       headers: { Accept: 'application/json,text/plain,*/*' },
       onload(response) {
         if (response.status !== 200) {
