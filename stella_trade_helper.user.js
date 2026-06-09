@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.32
-// @description  固定雲端同步網址，避免本機舊設定覆蓋預設網址，並保留防舊資料覆蓋。
+// @version      1.6.33
+// @description  修正試算表寫入與同步狀態提示，固定雲端網址，不轉發其他試算表。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.32] 腳本已載入');
+  console.log('[StellaTrade 1.6.33] 腳本已載入');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -763,15 +763,18 @@
 
         console.log('[StellaTrade] 上傳回應：', parsed.data);
 
-        if (parsed.data && Number(parsed.data.accepted || 0) === 0 && Number(parsed.data.staleSkipped || 0) > 0) {
-          markSyncFailure('upload', '雲端判定資料較舊，已略過。請確認 Apps Script 已重新部署，並確認電腦時間是否正確。');
+        if (parsed.data && parsed.data.status === 'success' && Number(parsed.data.accepted || 0) === 0) {
+          const skipped = Number(parsed.data.skipped || 0);
+          const staleSkipped = Number(parsed.data.staleSkipped || 0);
+          const sheetName = parsed.data.sheetName ? `，寫入頁籤：${parsed.data.sheetName}` : '';
+          markSyncFailure('upload', `雲端收到請求，但沒有寫入商品。accepted=0，skipped=${skipped}，staleSkipped=${staleSkipped}${sheetName}`);
           return;
         }
 
         markSyncSuccess();
         lastCloudPullAt = Date.now();
         cloudPullPausedUntil = Date.now() + CLOUD_PULL_AFTER_UPLOAD_DELAY;
-        console.log('[StellaTrade] 上傳成功，短暫暫停雲端拉取避免舊資料回寫');
+        console.log('[StellaTrade] 上傳成功，短暫暫停雲端拉取避免舊資料回寫。寫入頁籤：', parsed.data && parsed.data.sheetName);
       },
       onerror(error) {
         markSyncFailure('upload', error);
