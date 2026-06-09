@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.27
-// @description  修正面板渲染前清理資料時遺失推估補貨欄位，讓試算表已有推估時間能正確顯示。
+// @version      1.6.29
+// @description  加入同步版本與雲端拉取防舊資料覆蓋，避免上傳後被舊雲端資料洗回。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 大陸版 1.6.27] 腳本已載入');
+  console.log('[StellaTrade 1.6.29] 腳本已載入');
 
   const API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -31,6 +31,7 @@
   const CLICK_UPDATE_DELAY = 1200;
   const RETURN_UPDATE_COOLDOWN = 2500;
   const CLOUD_PULL_INTERVAL = 90 * 1000;
+  const CLOUD_PULL_AFTER_UPLOAD_DELAY = 45 * 1000;
   const AUTO_PUBLISH_INTERVAL = 5 * 60 * 1000;
   const TOAST_COOLDOWN = 60 * 1000;
 
@@ -60,6 +61,7 @@
   let lastCloudPullAt = 0;
   let lastAutoPublishAt = 0;
   let lastToastAt = 0;
+  let cloudPullPausedUntil = 0;
   let started = false;
   let observerReady = false;
   let listenersReady = false;
@@ -213,7 +215,9 @@
       restockAnchorCount: '',
       restockAnchorMax: '',
       estimateBasis: '',
-      estimateText: ''
+      estimateText: '',
+      clientObservedAt: '',
+      syncVersion: ''
     };
   }
 
@@ -364,7 +368,9 @@
           restockAnchorCount: safe.restockAnchorCount || '',
           restockAnchorMax: safe.restockAnchorMax || '',
           estimateBasis: safe.estimateBasis || '',
-          estimateText: safe.estimateText || safe.restockEstimateText || safe.estimatedRestockText || ''
+          estimateText: safe.estimateText || safe.restockEstimateText || safe.estimatedRestockText || '',
+          clientObservedAt: safe.clientObservedAt || safe.syncVersion || '',
+          syncVersion: safe.syncVersion || safe.clientObservedAt || ''
         };
       }
     }
@@ -634,7 +640,9 @@
         max: good.max,
         time,
         price: good.price || oldInfo.price || '-',
-        restock: good.restock || oldInfo.restock || '-'
+        restock: good.restock || oldInfo.restock || '-',
+        clientObservedAt: observedAtMs,
+        syncVersion: observedAtMs
       };
 
       const newInfo = applyRestockEstimate(oldInfo, baseInfo, observedAtMs);
@@ -665,7 +673,9 @@
         restockAnchorCount: newInfo.restockAnchorCount || '',
         restockAnchorMax: newInfo.restockAnchorMax || '',
         estimateBasis: newInfo.estimateBasis || '',
-        estimateText: newInfo.estimateText || ''
+        estimateText: newInfo.estimateText || '',
+        clientObservedAt: newInfo.clientObservedAt || observedAtMs,
+        syncVersion: newInfo.syncVersion || newInfo.clientObservedAt || observedAtMs
       });
     }
 
@@ -748,7 +758,9 @@
         }
 
         markSyncSuccess();
-        console.log('[StellaTrade] 上傳成功');
+        lastCloudPullAt = Date.now();
+        cloudPullPausedUntil = Date.now() + CLOUD_PULL_AFTER_UPLOAD_DELAY;
+        console.log('[StellaTrade] 上傳成功，短暫暫停雲端拉取避免舊資料回寫');
       },
       onerror(error) {
         markSyncFailure('upload', error);
@@ -756,8 +768,14 @@
     });
   }
 
-  function fetchCloudData({ silent = true } = {}) {
-    lastCloudPullAt = Date.now();
+  function fetchCloudData({ silent = true, force = false } = {}) {
+    const now = Date.now();
+    if (!force && now < cloudPullPausedUntil) {
+      lastCloudPullAt = now;
+      return;
+    }
+
+    lastCloudPullAt = now;
 
     request({
       method: 'GET',
@@ -814,8 +832,15 @@
                 restockAnchorCount: info.restockAnchorCount || oldInfo.restockAnchorCount || '',
                 restockAnchorMax: info.restockAnchorMax || oldInfo.restockAnchorMax || '',
                 estimateBasis: info.estimateBasis || oldInfo.estimateBasis || '',
-                estimateText: info.estimateText || info.restockEstimateText || info.estimatedRestockText || oldInfo.estimateText || ''
+                estimateText: info.estimateText || info.restockEstimateText || info.estimatedRestockText || oldInfo.estimateText || '',
+                clientObservedAt: info.clientObservedAt || info.syncVersion || '',
+                syncVersion: info.syncVersion || info.clientObservedAt || ''
               };
+
+              if (!shouldAcceptIncomingCloud(oldInfo, incomingInfo)) {
+                console.log('[StellaTrade] 略過較舊雲端資料：', cleanPort, cleanItem);
+                continue;
+              }
 
               const mergedInfo = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
 
@@ -851,6 +876,8 @@
               if (info.restockAnchorMax !== undefined && info.restockAnchorMax !== '') {
                 mergedInfo.restockAnchorMax = num(info.restockAnchorMax) ?? mergedInfo.restockAnchorMax;
               }
+              mergedInfo.clientObservedAt = incomingInfo.clientObservedAt || incomingInfo.syncVersion || mergedInfo.clientObservedAt || '';
+              mergedInfo.syncVersion = incomingInfo.syncVersion || incomingInfo.clientObservedAt || mergedInfo.syncVersion || '';
 
               localData[cleanPort][cleanItem] = mergedInfo;
               hasUpdate = true;
@@ -1040,6 +1067,44 @@
 
     const parsed = Date.parse(text);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+
+  function explicitObservationVersionMs(info) {
+    if (!info || typeof info !== 'object') return 0;
+    return toTimestamp(info.clientObservedAt || info.syncVersion || info.updatedAtMs || info.observedAtMs) || 0;
+  }
+
+  function observationTimeMs(info) {
+    if (!info || typeof info !== 'object') return 0;
+    return toTimestamp(info.time) || 0;
+  }
+
+  function shouldAcceptIncomingCloud(localInfo, incomingInfo) {
+    const localExplicit = explicitObservationVersionMs(localInfo);
+    const incomingExplicit = explicitObservationVersionMs(incomingInfo);
+
+    if (localExplicit && incomingExplicit) return incomingExplicit >= localExplicit;
+
+    const localTime = observationTimeMs(localInfo);
+    const incomingTime = observationTimeMs(incomingInfo);
+
+    // 本機已經有新版插件寫入的毫秒版本，但雲端回來的是沒有版本號的舊資料時，
+    // 除非雲端觀測時間真的更新，否則不可覆蓋本機。人類同步資料已經夠亂了，別再讓舊資料復辟。
+    if (localExplicit && !incomingExplicit) {
+      if (!incomingTime) return false;
+      if (localTime && incomingTime <= localTime) return false;
+      return true;
+    }
+
+    if (!localExplicit && incomingExplicit) {
+      if (!localTime) return true;
+      return incomingExplicit >= localTime;
+    }
+
+    if (!localTime) return true;
+    if (!incomingTime) return false;
+    return incomingTime >= localTime;
   }
 
   function restockEstimateText(info) {
@@ -1946,8 +2011,8 @@
     }
 
     if (action === 'manual-sync') {
-      fetchCloudData({ silent: false });
-      scrapeCurrentVisibleData({ upload: true, silent: true });
+      const uploaded = scrapeCurrentVisibleData({ upload: true, silent: true });
+      if (!uploaded) fetchCloudData({ silent: false, force: true });
       return;
     }
   }
@@ -2966,8 +3031,8 @@
     scheduleLauncherUpdate();
 
     setTimeout(() => {
-      fetchCloudData({ silent: true });
       scrapeCurrentVisibleData({ upload: false, silent: true });
+      fetchCloudData({ silent: true });
       scheduleInject();
       scheduleLauncherUpdate();
     }, 1000);
