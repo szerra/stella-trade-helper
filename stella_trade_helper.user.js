@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.36
-// @description  加強雲端同步錯誤診斷，固定雲端網址，不轉發其他試算表。
+// @version      1.6.47
+// @description  新增職業技能港口情報掃描，正確寫入技能掃描補貨時間。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.36] 腳本已載入');
+  console.log('[StellaTrade 1.6.47] 腳本已載入');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -118,6 +118,8 @@
     '夜帆绸': '夜帆綢',
     '夜帆綢': '夜帆綢',
     '夜帆絹': '夜帆綢',
+    '夜帆绳': '夜帆綢',
+    '夜帆繩': '夜帆綢',
 
     '小米酒': '米酒',
     '米酒': '米酒',
@@ -223,6 +225,8 @@
       restockAnchorMax: '',
       estimateBasis: '',
       estimateText: '',
+      lastRestockSource: '',
+      observationSource: '',
       clientObservedAt: '',
       syncVersion: ''
     };
@@ -376,6 +380,8 @@
           restockAnchorMax: safe.restockAnchorMax || '',
           estimateBasis: safe.estimateBasis || '',
           estimateText: safe.estimateText || safe.restockEstimateText || safe.estimatedRestockText || '',
+          lastRestockSource: safe.lastRestockSource || safe.restockSource || '',
+          observationSource: safe.observationSource || safe.source || '',
           clientObservedAt: safe.clientObservedAt || safe.syncVersion || '',
           syncVersion: safe.syncVersion || safe.clientObservedAt || ''
         };
@@ -603,19 +609,117 @@
     return Object.values(result);
   }
 
+
+  function isProfessionScanPage(text) {
+    const t = String(text || '');
+    return (
+      t.includes('港口情報') &&
+      (t.includes('上次刷新') || t.includes('上次補貨') || t.includes('上次补货')) &&
+      (t.includes('庫存') || t.includes('库存'))
+    );
+  }
+
+  function formatDateTimeForUpload(timestamp, withSeconds = true) {
+    const d = new Date(timestamp);
+    if (Number.isNaN(d.getTime())) return '';
+    const yy = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return withSeconds ? `${yy}/${mo}/${dd} ${hh}:${mi}:${ss}` : `${yy}/${mo}/${dd} ${hh}:${mi}`;
+  }
+
+  function extractSkillRefreshTimestamp(text, reference = new Date()) {
+    const raw = String(text || '');
+    let m = raw.match(/(?:上次刷新|上次補貨|上次补货)\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      const [, y, mo, d, h, mi, s] = m;
+      const ts = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s || 0)).getTime();
+      return Number.isFinite(ts) ? ts : null;
+    }
+
+    m = raw.match(/(?:上次刷新|上次補貨|上次补货)\s*(\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return null;
+
+    const [, mo, d, h, mi, s] = m;
+    let year = reference.getFullYear();
+    let ts = new Date(year, Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s || 0)).getTime();
+
+    // 跨年時避免把 12 月資料算成明年。時間這種東西，居然還要替電腦猜，真是文明奇蹟。
+    if (Number.isFinite(ts) && ts > reference.getTime() + 24 * 60 * 60 * 1000) {
+      ts = new Date(year - 1, Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s || 0)).getTime();
+    }
+
+    return Number.isFinite(ts) ? ts : null;
+  }
+
+  function scanProfessionSkillGoods(portDef) {
+    const result = {};
+    const elements = [...document.querySelectorAll('div, li, tr, section, article, button')];
+    const now = new Date();
+
+    for (const el of elements) {
+      if (!visible(el)) continue;
+      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-sync-toast, .stella-detail-goods')) continue;
+
+      const text = el.innerText?.trim();
+      if (!text || text.length > 1200) continue;
+      if (!/上次(?:刷新|補貨|补货)/.test(text)) continue;
+
+      const stocks = text.match(/(?:库存|庫存)\s*[0-9,]+\s*\/\s*[0-9,]+/g) || [];
+      if (stocks.length !== 1) continue;
+
+      const stock = extractStock(text);
+      if (!stock) continue;
+
+      let itemName = extractItemNameByKnownList(text, portDef);
+      if (!itemName) itemName = extractItemNameFallback(text);
+      itemName = normItem(itemName);
+      if (!itemName || isInvalidItemName(itemName)) continue;
+      if (!portDef.items.includes(itemName)) continue;
+
+      const refreshAt = extractSkillRefreshTimestamp(text, now);
+      const refreshText = refreshAt ? formatDateTimeForUpload(refreshAt, true) : '';
+      const info = {
+        name: itemName,
+        count: stock.count,
+        max: stock.max,
+        price: extractPrice(text),
+        restock: '-',
+        source: 'skill_scan',
+        skillRefreshAt: refreshAt || '',
+        skillRefreshText: refreshText,
+        // 只有售罄商品的「上次刷新」才當成真正補貨基準。其他商品只更新庫存，別把人類觀察污染成神諭。
+        skillLastRestockAt: stock.count <= 0 && refreshAt ? refreshAt : '',
+        skillLastRestockText: stock.count <= 0 && refreshText ? refreshText : '',
+        rawText: text
+      };
+
+      const old = result[itemName];
+      if (!old || text.length < old.rawText.length) result[itemName] = info;
+    }
+
+    return Object.values(result);
+  }
+
   function infoChanged(oldInfo, newInfo) {
     if (!oldInfo) return true;
     return (
       Number(oldInfo.count ?? -1) !== Number(newInfo.count ?? -1) ||
       Number(oldInfo.max ?? -1) !== Number(newInfo.max ?? -1) ||
       String(oldInfo.price ?? '-') !== String(newInfo.price ?? '-') ||
-      String(oldInfo.restock ?? '-') !== String(newInfo.restock ?? '-')
+      String(oldInfo.restock ?? '-') !== String(newInfo.restock ?? '-') ||
+      String(oldInfo.lastRestockAt ?? '') !== String(newInfo.lastRestockAt ?? '') ||
+      String(oldInfo.lastRestockSource ?? '') !== String(newInfo.lastRestockSource ?? '')
     );
   }
 
   function scrapeCurrentVisibleData({ upload = true, silent = true } = {}) {
     const text = getCleanPageText();
-    if (isTavernPage(text)) return false;
+    const isSkillScan = isProfessionScanPage(text);
+    if (isTavernPage(text) && !isSkillScan) return false;
 
     const portDef = detectCurrentPort(text);
     if (!portDef) {
@@ -623,7 +727,7 @@
       return false;
     }
 
-    const goods = scanGoods(portDef);
+    const goods = isSkillScan ? scanProfessionSkillGoods(portDef) : scanGoods(portDef);
     if (!goods.length) {
       if (!silent) console.log(`[StellaTrade] ${portDef.port} 沒有讀到商品列`);
       return false;
@@ -642,17 +746,29 @@
       if (!portDef.items.includes(itemName)) continue;
 
       const oldInfo = data[portDef.port][itemName] || {};
+      const isSkillItem = good.source === 'skill_scan';
+      const skillLastRestockAt = good.skillLastRestockAt || '';
+      const skillLastRestockText = good.skillLastRestockText || '';
       const baseInfo = {
         count: good.count,
         max: good.max,
-        time,
+        time: time,
         price: good.price || oldInfo.price || '-',
         restock: good.restock || oldInfo.restock || '-',
+        lastRestockAt: skillLastRestockAt || oldInfo.lastRestockAt || '',
+        lastRestockSource: skillLastRestockAt ? 'skill_scan' : (oldInfo.lastRestockSource || ''),
+        observationSource: isSkillItem ? 'skill_scan' : 'page_observe',
+        estimateBasis: skillLastRestockAt ? '技能掃描補貨時間' : (oldInfo.estimateBasis || ''),
         clientObservedAt: observedAtMs,
         syncVersion: observedAtMs
       };
 
       const newInfo = applyRestockEstimate(oldInfo, baseInfo, observedAtMs);
+      if (skillLastRestockAt) {
+        newInfo.lastRestockAt = skillLastRestockAt;
+        newInfo.lastRestockSource = 'skill_scan';
+        newInfo.estimateBasis = '技能掃描補貨時間';
+      }
 
       if (!data[portDef.port][itemName] || infoChanged(oldInfo, newInfo)) {
         data[portDef.port][itemName] = newInfo;
@@ -673,6 +789,8 @@
         restockTime: newInfo.restock,
         nextRestock: newInfo.restock,
         lastRestockAt: newInfo.lastRestockAt || '',
+        lastRestockSource: newInfo.lastRestockSource || '',
+        observationSource: newInfo.observationSource || '',
         soldOutAt: newInfo.soldOutAt || '',
         estimatedRestockAt: newInfo.estimatedRestockAt || '',
         estimateStatus: newInfo.estimateStatus || 'unknown',
@@ -681,6 +799,8 @@
         restockAnchorMax: newInfo.restockAnchorMax || '',
         estimateBasis: newInfo.estimateBasis || '',
         estimateText: newInfo.estimateText || '',
+        skillRefreshAt: good.skillRefreshText || good.skillRefreshAt || '',
+        source: isSkillItem ? 'skill_scan' : 'page_observe',
         clientObservedAt: newInfo.clientObservedAt || observedAtMs,
         syncVersion: newInfo.syncVersion || newInfo.clientObservedAt || observedAtMs
       });
@@ -692,8 +812,12 @@
     schedulePanelRender();
     scheduleLauncherUpdate();
 
-    if (upload && uploadGoods.length) uploadToCloud(portDef.port, time, uploadGoods);
-    if (changed > 0) console.log(`[StellaTrade] 已更新 ${portDef.port}：${changed} 項商品`);
+    if (upload && uploadGoods.length) uploadToCloud(portDef.port, time, uploadGoods, { source: isSkillScan ? 'skill_scan' : 'page_observe' });
+    if (changed > 0) {
+      const label = isSkillScan ? '技能掃描' : '頁面觀察';
+      console.log(`[StellaTrade] 已更新 ${portDef.port}：${changed} 項商品（${label}）`);
+      if (isSkillScan && readSettings().showToast) showSyncToast('✅ 港口情報已掃描', `${portDef.port} 已讀取 ${uploadGoods.length} 項商品`);
+    }
     return true;
   }
 
@@ -757,11 +881,11 @@
     }
   }
 
-  function uploadToCloud(port, time, goods) {
+  function uploadToCloud(port, time, goods, extra = {}) {
     request({
       method: 'POST',
       url: getApiUrl(),
-      data: JSON.stringify({ action: 'update_v7', port: normPort(port), time, goods, clientObservedAt: Date.now(), syncVersion: Date.now() }),
+      data: JSON.stringify({ action: 'update_v7', port: normPort(port), time, goods, source: extra.source || '', clientObservedAt: Date.now(), syncVersion: Date.now() }),
       headers: { 'Content-Type': 'application/json' },
       onload(response) {
         if (response.status !== 200) {
@@ -786,6 +910,11 @@
           const skipped = Number(parsed.data.skipped || 0);
           const staleSkipped = Number(parsed.data.staleSkipped || 0);
           const sheetName = parsed.data.sheetName ? `，寫入頁籤：${parsed.data.sheetName}` : '';
+          if (staleSkipped > 0 && skipped === 0) {
+            markSyncSuccess();
+            if (readSettings().showToast) showSyncToast('☁️ 雲端資料較新', `本次 ${staleSkipped} 筆舊資料已略過，不算失敗${sheetName}`);
+            return;
+          }
           markSyncFailure('upload', `雲端收到請求，但沒有寫入商品。accepted=0，skipped=${skipped}，staleSkipped=${staleSkipped}${sheetName}`);
           return;
         }
@@ -866,6 +995,8 @@
                 restockAnchorMax: info.restockAnchorMax || oldInfo.restockAnchorMax || '',
                 estimateBasis: info.estimateBasis || oldInfo.estimateBasis || '',
                 estimateText: info.estimateText || info.restockEstimateText || info.estimatedRestockText || oldInfo.estimateText || '',
+                lastRestockSource: info.lastRestockSource || info.restockSource || oldInfo.lastRestockSource || '',
+                observationSource: info.observationSource || info.source || oldInfo.observationSource || '',
                 clientObservedAt: info.clientObservedAt || info.syncVersion || '',
                 syncVersion: info.syncVersion || info.clientObservedAt || ''
               };
@@ -898,6 +1029,12 @@
               if (info.lastRestockAt) {
                 const cloudLastRestockAt = toTimestamp(info.lastRestockAt);
                 if (cloudLastRestockAt) mergedInfo.lastRestockAt = cloudLastRestockAt;
+              }
+              if (info.lastRestockSource || info.restockSource) {
+                mergedInfo.lastRestockSource = String(info.lastRestockSource || info.restockSource || '');
+              }
+              if (info.observationSource || info.source) {
+                mergedInfo.observationSource = String(info.observationSource || info.source || '');
               }
               if (info.restockAnchorAt) {
                 const cloudAnchorAt = toTimestamp(info.restockAnchorAt);
@@ -1231,6 +1368,8 @@
     output.restockAnchorMax = num(output.restockAnchorMax) ?? '';
     output.estimateBasis = output.estimateBasis || '';
     output.estimateText = output.estimateText || '';
+    output.lastRestockSource = output.lastRestockSource || output.restockSource || '';
+    output.observationSource = output.observationSource || output.source || '';
 
     return output;
   }
@@ -1272,6 +1411,9 @@
     let restockAnchorCount = incoming.restockAnchorCount || oldData.restockAnchorCount || '';
     let restockAnchorMax = incoming.restockAnchorMax || oldData.restockAnchorMax || '';
     let estimateBasis = incoming.estimateBasis || oldData.estimateBasis || '';
+    let lastRestockSource = incoming.lastRestockSource || oldData.lastRestockSource || '';
+    let observationSource = incoming.observationSource || oldData.observationSource || '';
+    const skillLockedRestock = oldData.lastRestockSource === 'skill_scan' && incoming.lastRestockSource !== 'skill_scan' && !!oldData.lastRestockAt;
 
     if (max > 0) {
       const isFull = count >= max;
@@ -1281,12 +1423,15 @@
 
       if (count > 0) {
         if (isFull) {
-          // 看到滿貨，這是最可靠的基準。
-          lastRestockAt = observedAtMs;
+          // 看到滿貨，這是最可靠的基準；但技能掃描寫入的真實上次補貨時間優先，不被普通觀察覆蓋。
+          if (!skillLockedRestock) {
+            lastRestockAt = observedAtMs;
+            lastRestockSource = incoming.lastRestockSource || 'page_observe';
+          }
           restockAnchorAt = observedAtMs;
           restockAnchorCount = max;
           restockAnchorMax = max;
-          estimateBasis = '補滿後售罄';
+          estimateBasis = skillLockedRestock ? (estimateBasis || '技能掃描補貨時間') : '補滿後售罄';
         } else if (isHighEnoughForInference) {
           // 沒有剛好看到滿貨，但看到 70% 以上庫存，之後售罄時可用這筆反推。
           const shouldReplaceAnchor =
@@ -1355,6 +1500,8 @@
     output.restockAnchorMax = restockAnchorMax || '';
     output.estimateBasis = estimateBasis || '';
     output.estimateText = output.estimateText || '';
+    output.lastRestockSource = lastRestockSource || '';
+    output.observationSource = observationSource || '';
 
     return output;
   }
@@ -1567,12 +1714,13 @@
     const price = info.price && info.price !== '-' ? `${info.price} 魚幣` : '-';
     const low = lowStock(info, settings);
     const changeHtml = change ? renderMiniChange(change) : '<span class="stella-mini-muted">-</span>';
+    const restockSourceText = info.lastRestockSource === 'skill_scan' && info.lastRestockAt ? '　補貨基準：技能掃描' : '';
 
     return `
       <div class="stella-good-row ${low ? 'low' : ''}">
         <div class="stella-good-main">
           <div class="stella-good-name">${escapeHtml(itemName)}</div>
-          <div class="stella-good-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}　推估補貨：${escapeHtml(restockEstimateText(info))}</div>
+          <div class="stella-good-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}　推估補貨：${escapeHtml(restockEstimateText(info))}${escapeHtml(restockSourceText)}</div>
         </div>
         <div class="stella-good-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</div>
         <div class="stella-good-price">${escapeHtml(price)}</div>
@@ -1657,6 +1805,7 @@
 
         <div class="stella-setting-actions">
           <button class="stella-danger-btn" data-stella-action="reset-seen">重置變化紀錄</button>
+          <button class="stella-small-btn" data-stella-action="scan-current">掃描目前畫面</button>
           <button class="stella-small-btn" data-stella-action="manual-sync">立即同步雲端</button>
           <button class="stella-small-btn" data-stella-action="cloud-ping">測試雲端連線</button>
         </div>
@@ -2087,6 +2236,12 @@
     if (action === 'reset-seen') {
       markCurrentAsSeen();
       showSyncToast('已重置變化紀錄', '目前資料已設為新的比對基準。');
+      return;
+    }
+
+    if (action === 'scan-current') {
+      const scanned = scrapeCurrentVisibleData({ upload: true, silent: false });
+      if (!scanned) showSyncToast('沒有掃到港口情報', '目前畫面沒有可讀取的商品卡，請先開啟港口情報或商品頁。');
       return;
     }
 
