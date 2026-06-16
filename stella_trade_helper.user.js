@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.47
-// @description  新增職業技能港口情報掃描，正確寫入技能掃描補貨時間。
+// @version      1.6.48
+// @description  新增中英文顯示與英文商品/港口掃描支援，內部資料仍維持繁中 key。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.47] 腳本已載入');
+  console.log('[StellaTrade 1.6.48] 腳本已載入：i18n test');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -41,6 +41,7 @@
 
   const DEFAULT_SETTINGS = {
     defaultTab: 'changes',
+    language: 'auto',
     showToast: true,
     showBadge: true,
     lowStockRatio: 0.15,
@@ -82,37 +83,66 @@
   const portNormalize = {
     '雾灯群岛': '霧燈群島',
     '霧燈群島': '霧燈群島',
+    'Mist Lantern Isles': '霧燈群島',
+    'mist_lantern_isles': '霧燈群島',
     '星沉湾': '星沉灣',
     '星沉灣': '星沉灣',
+    'Starfall Bay': '星沉灣',
+    'starfall_bay': '星沉灣',
     '夜帆市': '夜帆市',
+    'Night Sail City': '夜帆市',
+    'night_sail_city': '夜帆市',
     '鲸歌港': '鯨歌港',
     '鯨歌港': '鯨歌港',
+    'Whalesong Harbor': '鯨歌港',
+    'Whale Song Harbor': '鯨歌港',
+    'whale_song_harbor': '鯨歌港',
     '潮镜礁': '潮鏡礁',
     '潮境礁': '潮鏡礁',
     '潮鏡礁': '潮鏡礁',
-    '珊文港': '珊文港'
+    'Tideglass Reef': '潮鏡礁',
+    'tideglass_reef': '潮鏡礁',
+    '珊文港': '珊文港',
+    'Coral Script Port': '珊文港',
+    'coral_script_port': '珊文港'
   };
 
   const itemNormalize = {
     '雾灯芯': '霧燈芯',
     '霧燈芯': '霧燈芯',
+    'Mist Lantern Wick': '霧燈芯',
+    'souvenir_mist_lantern_wick': '霧燈芯',
+
     '航雾铜牌': '航霧銅牌',
     '航霧銅牌': '航霧銅牌',
+    'Fogbound Copper Tag': '航霧銅牌',
+    'souvenir_fogbound_copper_tag': '航霧銅牌',
 
     '星沙瓶': '星砂瓶',
     '星砂瓶': '星砂瓶',
+    'Star Sand Bottle': '星砂瓶',
+    'souvenir_star_sand_bottle': '星砂瓶',
 
     '海妖咖啡': '海妖咖啡',
+    'Siren Coffee': '海妖咖啡',
+    'coffee_siren': '海妖咖啡',
 
     '浮梦拿铁': '浮夢拿鐵',
     '浮夢拿鐵': '浮夢拿鐵',
+    'Dream Latte': '浮夢拿鐵',
+    'coffee_dream_latte': '浮夢拿鐵',
 
     '礁糖玛奇朵': '礁糖瑪奇朵',
     '礁糖瑪奇朵': '礁糖瑪奇朵',
+    'Reef Sugar Macchiato': '礁糖瑪奇朵',
+    'coffee_reef_sugar_macchiato': '礁糖瑪奇朵',
 
     '小急救包': '小急救包',
     '一次性醫療物品': '小急救包',
     '一次性医疗物品': '小急救包',
+    'Small First Aid Kit': '小急救包',
+    'Small Medical Kit': '小急救包',
+    'med_small_kit': '小急救包',
 
     '夜帆布': '夜帆布',
     '夜帆绸': '夜帆綢',
@@ -120,37 +150,194 @@
     '夜帆絹': '夜帆綢',
     '夜帆绳': '夜帆綢',
     '夜帆繩': '夜帆綢',
+    'Night Sail Silk': '夜帆綢',
+    'souvenir_night_sail_silk': '夜帆綢',
 
     '小米酒': '米酒',
     '米酒': '米酒',
+    'Rice Wine': '米酒',
+    'adv_cons_rice_wine': '米酒',
+
     '烈酒': '烈酒',
+    'Strong Liquor': '烈酒',
+    'cons_strong_liquor': '烈酒',
+
     '中急救包': '中急救包',
+    'Medium First Aid Kit': '中急救包',
+    'Medium Medical Kit': '中急救包',
+    'med_medium_kit': '中急救包',
 
     '鲸歌骨笛': '鯨歌骨笛',
     '鯨歌骨笛': '鯨歌骨笛',
+    'Whalesong Bone Flute': '鯨歌骨笛',
+    'Whale Bone Flute': '鯨歌骨笛',
+    'souvenir_whale_bone_flute': '鯨歌骨笛',
 
     '安神贝露': '安神貝露',
     '安神貝露': '安神貝露',
+    'Soothing Shell Dew': '安神貝露',
+    'coffee_soothing_shell_dew': '安神貝露',
 
     '潮镜贝': '潮鏡貝',
     '潮鏡貝': '潮鏡貝',
+    'Tideglass Shell': '潮鏡貝',
+    'souvenir_tideglass_shell': '潮鏡貝',
 
     '黑潮摩卡': '黑潮摩卡',
+    'Black Tide Mocha': '黑潮摩卡',
+    'coffee_black_tide_mocha': '黑潮摩卡',
+
     '幻潮冷萃': '幻潮冷萃',
+    'Phantom Tide Cold Brew': '幻潮冷萃',
+    'coffee_phantom_tide_cold_brew': '幻潮冷萃',
 
     '珊文签': '珊文簽',
     '珊文籤': '珊文簽',
-    '珊文簽': '珊文簽'
+    '珊文簽': '珊文簽',
+    'Coral Script Bookmark': '珊文簽',
+    'souvenir_coral_script_bookmark': '珊文簽'
   };
 
   const ports = [
-    { port: '星沉灣', keywords: ['星沉', '星沉灣', '星沉湾'], items: ['星砂瓶', '浮夢拿鐵', '海妖咖啡', '礁糖瑪奇朵', '小急救包'] },
-    { port: '夜帆市', keywords: ['夜帆'], items: ['夜帆綢', '黑潮摩卡', '安神貝露', '烈酒', '米酒', '中急救包'] },
-    { port: '鯨歌港', keywords: ['鯨歌', '鲸歌'], items: ['鯨歌骨笛', '安神貝露', '海妖咖啡'] },
-    { port: '潮鏡礁', keywords: ['潮鏡', '潮镜', '潮境'], items: ['潮鏡貝', '礁糖瑪奇朵', '黑潮摩卡'] },
-    { port: '霧燈群島', keywords: ['霧燈', '雾灯', '擺燈', '摆灯'], items: ['航霧銅牌', '霧燈芯', '幻潮冷萃', '浮夢拿鐵', '黑潮摩卡'] },
-    { port: '珊文港', keywords: ['珊文'], items: ['珊文簽', '幻潮冷萃', '浮夢拿鐵'] },
+    { port: '星沉灣', keywords: ['星沉', '星沉灣', '星沉湾', 'Starfall', 'Starfall Bay', 'starfall_bay'], items: ['星砂瓶', '浮夢拿鐵', '海妖咖啡', '礁糖瑪奇朵', '小急救包'] },
+    { port: '夜帆市', keywords: ['夜帆', 'Night Sail', 'Night Sail City', 'night_sail_city'], items: ['夜帆綢', '黑潮摩卡', '安神貝露', '烈酒', '米酒', '中急救包'] },
+    { port: '鯨歌港', keywords: ['鯨歌', '鲸歌', 'Whalesong', 'Whalesong Harbor', 'Whale Song Harbor', 'whale_song_harbor'], items: ['鯨歌骨笛', '安神貝露', '海妖咖啡'] },
+    { port: '潮鏡礁', keywords: ['潮鏡', '潮镜', '潮境', 'Tideglass', 'Tideglass Reef', 'tideglass_reef'], items: ['潮鏡貝', '礁糖瑪奇朵', '黑潮摩卡'] },
+    { port: '霧燈群島', keywords: ['霧燈', '雾灯', '擺燈', '摆灯', 'Mist Lantern', 'Mist Lantern Isles', 'mist_lantern_isles'], items: ['航霧銅牌', '霧燈芯', '幻潮冷萃', '浮夢拿鐵', '黑潮摩卡'] },
+    { port: '珊文港', keywords: ['珊文', 'Coral Script', 'Coral Script Port', 'coral_script_port'], items: ['珊文簽', '幻潮冷萃', '浮夢拿鐵'] },
   ];
+
+  const PORT_DISPLAY_NAMES = {
+    zh: {
+      '星沉灣': '星沉灣',
+      '夜帆市': '夜帆市',
+      '鯨歌港': '鯨歌港',
+      '潮鏡礁': '潮鏡礁',
+      '霧燈群島': '霧燈群島',
+      '珊文港': '珊文港'
+    },
+    en: {
+      '星沉灣': 'Starfall Bay',
+      '夜帆市': 'Night Sail City',
+      '鯨歌港': 'Whalesong Harbor',
+      '潮鏡礁': 'Tideglass Reef',
+      '霧燈群島': 'Mist Lantern Isles',
+      '珊文港': 'Coral Script Port'
+    }
+  };
+
+  const ITEM_DISPLAY_NAMES = {
+    zh: {
+      '星砂瓶': '星砂瓶',
+      '浮夢拿鐵': '浮夢拿鐵',
+      '海妖咖啡': '海妖咖啡',
+      '礁糖瑪奇朵': '礁糖瑪奇朵',
+      '小急救包': '小急救包',
+      '夜帆綢': '夜帆綢',
+      '黑潮摩卡': '黑潮摩卡',
+      '安神貝露': '安神貝露',
+      '烈酒': '烈酒',
+      '米酒': '米酒',
+      '中急救包': '中急救包',
+      '鯨歌骨笛': '鯨歌骨笛',
+      '潮鏡貝': '潮鏡貝',
+      '航霧銅牌': '航霧銅牌',
+      '霧燈芯': '霧燈芯',
+      '幻潮冷萃': '幻潮冷萃',
+      '珊文簽': '珊文簽'
+    },
+    en: {
+      '星砂瓶': 'Star Sand Bottle',
+      '浮夢拿鐵': 'Dream Latte',
+      '海妖咖啡': 'Siren Coffee',
+      '礁糖瑪奇朵': 'Reef Sugar Macchiato',
+      '小急救包': 'Small First Aid Kit',
+      '夜帆綢': 'Night Sail Silk',
+      '黑潮摩卡': 'Black Tide Mocha',
+      '安神貝露': 'Soothing Shell Dew',
+      '烈酒': 'Strong Liquor',
+      '米酒': 'Rice Wine',
+      '中急救包': 'Medium First Aid Kit',
+      '鯨歌骨笛': 'Whalesong Bone Flute',
+      '潮鏡貝': 'Tideglass Shell',
+      '航霧銅牌': 'Fogbound Copper Tag',
+      '霧燈芯': 'Mist Lantern Wick',
+      '幻潮冷萃': 'Phantom Tide Cold Brew',
+      '珊文簽': 'Coral Script Bookmark'
+    }
+  };
+
+  const I18N = {
+    zh: {
+      syncLast: '最後同步', syncOk: '雲端同步：正常', syncFail: '雲端同步：失敗', syncFailCompact: '同步失敗', syncHint: '　請看設定頁的錯誤詳情', syncWait: '雲端同步：確認中',
+      emptyChangesTitle: '目前沒有新的貨物變化', emptyChangesSub: '同步後若有港口商品變化，會顯示在這裡。', changesSinceRead: '自上次標記已讀後，共 {n} 項變化。', markRead: '標記為已讀',
+      newItem: '新增商品', itemRemoved: '商品消失', original: '原', coin: '魚幣', restockChanged: '補貨變化',
+      itemCount: '{n} 項商品', lastUpdate: '最後更新：{time}', lowStock: '低庫存 {n}', changeCount: '變化 {n}', noChange: '無變化',
+      sort: '排序', sortLowStock: '低庫存', sortTime: '更新時間', sortPrice: '價格', sortName: '商品名稱', goodsEmpty: '目前沒有商品資料',
+      update: '更新', restock: '補貨', estimatedRestock: '推估補貨', restockBasisSkill: '　補貨基準：技能掃描', added: '新增', disappeared: '消失', changed: '變更',
+      settingsLanguage: '語言', settingsLanguageSub: 'Auto 會優先依遊戲畫面判斷，再看瀏覽器語言。', langAuto: 'Auto', langZh: '中文', langEn: 'English',
+      showToast: '顯示同步失敗提示', showToastSub: '失敗時右上角跳出提醒。', showBadge: '顯示變化角標', showBadgeSub: '上方跑商情報按鈕顯示變化數字。', showTravel: '顯示航程預估', showTravelSub: '在港口下方簡化資訊中顯示預計到達與返航。', defaultPage: '開啟面板預設頁', defaultPageSub: '下次打開情報面板時優先顯示。', lowStockRatio: '低庫存比例', lowStockRatioSub: '低於比例時，港口與商品會被標記。', cloudDiag: '雲端診斷', url: '網址', status: '狀態', normal: '正常', failed: '失敗', checking: '確認中', lastSuccess: '最後成功', lastFailure: '最後失敗', error: '錯誤', resetChanges: '重置變化紀錄', scanCurrent: '掃描目前畫面', syncNow: '立即同步雲端', pingCloud: '測試雲端連線',
+      panelTitle: '🚢 跑商情報站', panelSubtitle: '港口庫存・價格・變化追蹤', close: '關閉', hasChanges: '有 {n} 項變化', noNewChanges: '沒有新的變化', tabChanges: '變化', tabOverview: '概覽', tabPorts: '港口', tabSettings: '設定', launcher: '跑商情報',
+      travelTitle: '航程預估', travelDuration: '航行時間', travelArrive: '預計到達', travelReturn: '預計返航', tomorrow: '明天', goodsInfo: '貨物情報', itemsShort: '{n} 項', estimate: '推估', noSyncData: '目前沒有同步資料',
+      resetToastTitle: '已重置變化紀錄', resetToastMessage: '目前資料已設為新的比對基準。', noScanTitle: '沒有掃到港口情報', noScanMessage: '目前畫面沒有可讀取的商品卡，請先開啟港口情報或商品頁。', skillScanToastTitle: '✅ 港口情報已掃描', skillScanToastMessage: '{port} 已讀取 {n} 項商品', cloudNewerTitle: '☁️ 雲端資料較新', cloudNewerMessage: '本次 {n} 筆舊資料已略過，不算失敗{sheet}', uploadFailTitle: '⚠️ 上傳雲端失敗', uploadFailMessage: '資料目前只保存在本機。原因：{reason}', syncFailTitle: '⚠️ 雲端同步失敗', syncFailMessage: '原因：{reason}', pingFailTitle: '⚠️ 雲端連線測試失敗', pingOkTitle: '✅ 雲端連線正常', pingOkMessage: 'Web App 回應正常｜{time}'
+    },
+    en: {
+      syncLast: 'Last sync', syncOk: 'Cloud sync: OK', syncFail: 'Cloud sync: Failed', syncFailCompact: 'Sync failed', syncHint: '  Check error details in Settings', syncWait: 'Cloud sync: Checking',
+      emptyChangesTitle: 'No new cargo changes', emptyChangesSub: 'Port item changes will appear here after sync.', changesSinceRead: '{n} changes since last marked as read.', markRead: 'Mark as Read',
+      newItem: 'New Item', itemRemoved: 'Item Removed', original: 'Was', coin: 'Coins', restockChanged: 'Restock Changed',
+      itemCount: '{n} items', lastUpdate: 'Last update: {time}', lowStock: 'Low stock {n}', changeCount: 'Changes {n}', noChange: 'No change',
+      sort: 'Sort', sortLowStock: 'Low stock', sortTime: 'Update time', sortPrice: 'Price', sortName: 'Item name', goodsEmpty: 'No item data yet',
+      update: 'Update', restock: 'Restock', estimatedRestock: 'Estimated restock', restockBasisSkill: '  Basis: skill scan', added: 'New', disappeared: 'Gone', changed: 'Changed',
+      settingsLanguage: 'Language', settingsLanguageSub: 'Auto checks the game screen first, then browser language.', langAuto: 'Auto', langZh: '中文', langEn: 'English',
+      showToast: 'Show sync failure toast', showToastSub: 'Show a toast in the upper-right when sync fails.', showBadge: 'Show change badge', showBadgeSub: 'Show the number of changes on the Trade Info button.', showTravel: 'Show travel estimate', showTravelSub: 'Show ETA and return time below port cards.', defaultPage: 'Default panel tab', defaultPageSub: 'Preferred tab when opening the panel.', lowStockRatio: 'Low stock threshold', lowStockRatioSub: 'Mark ports and items below this ratio.', cloudDiag: 'Cloud diagnostics', url: 'URL', status: 'Status', normal: 'OK', failed: 'Failed', checking: 'Checking', lastSuccess: 'Last success', lastFailure: 'Last failure', error: 'Error', resetChanges: 'Reset change record', scanCurrent: 'Scan current screen', syncNow: 'Sync now', pingCloud: 'Test cloud connection',
+      panelTitle: '🚢 Trade Info Station', panelSubtitle: 'Port stock ・ prices ・ change tracking', close: 'Close', hasChanges: '{n} changes', noNewChanges: 'No new changes', tabChanges: 'Changes', tabOverview: 'Overview', tabPorts: 'Ports', tabSettings: 'Settings', launcher: 'Trade Info',
+      travelTitle: 'Travel Estimate', travelDuration: 'Travel Time', travelArrive: 'ETA', travelReturn: 'Return ETA', tomorrow: 'Tomorrow', goodsInfo: 'Cargo Info', itemsShort: '{n} items', estimate: 'Estimate', noSyncData: 'No synced data yet',
+      resetToastTitle: 'Change record reset', resetToastMessage: 'Current data is now the comparison baseline.', noScanTitle: 'No port info found', noScanMessage: 'No readable item card was found. Open a port info or item page first.', skillScanToastTitle: '✅ Port info scanned', skillScanToastMessage: '{port}: {n} items read', cloudNewerTitle: '☁️ Cloud data is newer', cloudNewerMessage: '{n} older local records were skipped; not an error{sheet}', uploadFailTitle: '⚠️ Cloud upload failed', uploadFailMessage: 'Data is saved locally only. Reason: {reason}', syncFailTitle: '⚠️ Cloud sync failed', syncFailMessage: 'Reason: {reason}', pingFailTitle: '⚠️ Cloud connection test failed', pingOkTitle: '✅ Cloud connection OK', pingOkMessage: 'Web App responded normally｜{time}'
+    }
+  };
+
+  function detectGameLanguage() {
+    const htmlLang = String(document.documentElement?.lang || '').toLowerCase();
+    if (htmlLang.startsWith('en')) return 'en';
+    if (htmlLang.startsWith('zh')) return 'zh';
+
+    const text = String(document.body?.innerText || '').slice(0, 8000);
+    const enHits = (text.match(/\b(Quantity|Details|Language|Stock|Price|Restock|Depart|Return|Market|Warehouse|Trade Info|Coins)\b/g) || []).length;
+    const zhHits = (text.match(/(數量|数量|詳情|详情|語言|语言|庫存|库存|價格|价格|補貨|补货|出發|出发|返回|返航|市場|市场|倉庫|仓库)/g) || []).length;
+    if (enHits > zhHits && enHits >= 2) return 'en';
+    if (zhHits > 0) return 'zh';
+    return navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh';
+  }
+
+  function currentLang() {
+    const mode = readSettings().language || 'auto';
+    if (mode === 'en' || mode === 'zh') return mode;
+    return detectGameLanguage();
+  }
+
+  function t(key, vars = {}) {
+    const lang = currentLang();
+    let value = (I18N[lang] && I18N[lang][key]) || I18N.zh[key] || key;
+    for (const [name, replacement] of Object.entries(vars || {})) {
+      value = value.replaceAll(`{${name}}`, String(replacement));
+    }
+    return value;
+  }
+
+  function displayPortName(portName) {
+    const port = normPort(portName);
+    return (PORT_DISPLAY_NAMES[currentLang()] && PORT_DISPLAY_NAMES[currentLang()][port]) || PORT_DISPLAY_NAMES.zh[port] || port;
+  }
+
+  function displayItemName(itemName) {
+    const item = normItem(itemName);
+    return (ITEM_DISPLAY_NAMES[currentLang()] && ITEM_DISPLAY_NAMES[currentLang()][item]) || ITEM_DISPLAY_NAMES.zh[item] || item;
+  }
+
+  function coinText(value) {
+    if (value === null || value === undefined || value === '' || value === '-') return '-';
+    return `${value} ${t('coin')}`;
+  }
 
   function normPort(value) {
     const clean = String(value || '').trim();
@@ -312,7 +499,14 @@
       text.includes('合計') ||
       text.includes('总计') ||
       text.includes('購買') ||
-      text.includes('购买')
+      text.includes('购买') ||
+      lower.includes('description') ||
+      lower.includes('effect') ||
+      lower.includes('cooldown') ||
+      lower.includes('price') ||
+      lower.includes('stock') ||
+      lower.includes('quantity') ||
+      lower.includes('purchase')
     );
   }
 
@@ -322,6 +516,12 @@
       t.includes('類別') ||
       t.includes('类别') ||
       t.toLowerCase().includes('category') ||
+      t.toLowerCase().includes('description') ||
+      t.toLowerCase().includes('effect') ||
+      t.toLowerCase().includes('cooldown') ||
+      t.toLowerCase().includes('price') ||
+      t.toLowerCase().includes('stock') ||
+      t.toLowerCase().includes('quantity') ||
       t.includes('效果') ||
       t.includes('冷卻') ||
       t.includes('冷却') ||
@@ -489,7 +689,10 @@
       text.includes('庫存情報') ||
       text.includes('库存情报') ||
       text.includes('打聽庫存') ||
-      text.includes('打听库存')
+      text.includes('打听库存') ||
+      text.includes('Tavern Rumors') ||
+      text.includes('Stock Intel') ||
+      text.includes('Ask About Stock')
     );
   }
 
@@ -523,7 +726,7 @@
   }
 
   function extractStock(text) {
-    const m = text.match(/(?:库存|庫存)\s*([0-9,]+)\s*\/\s*([0-9,]+)/);
+    const m = text.match(/(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*([0-9,]+)\s*\/\s*([0-9,]+)/i);
     if (!m) return null;
     const count = num(m[1]);
     const max = num(m[2]);
@@ -532,15 +735,15 @@
   }
 
   function extractPrice(text) {
-    const labeled = text.match(/(?:價格|价格|售价|售價|單價|单价)[:：]?\s*([0-9,]+)/);
+    const labeled = text.match(/(?:價格|价格|售价|售價|單價|单价|Price|Sale Price|Unit Price)[:：]?\s*([0-9,]+)/i);
     if (labeled) return String(num(labeled[1]) ?? labeled[1]);
-    const currency = text.match(/([0-9,]+)\s*(?:金币|金幣|鱼币|魚幣|幣|币)/);
+    const currency = text.match(/([0-9,]+)\s*(?:金币|金幣|鱼币|魚幣|幣|币|Coins?|Gold)/i);
     if (currency) return String(num(currency[1]) ?? currency[1]);
     return '-';
   }
 
   function extractRestock(text) {
-    const m = text.match(/(?:補貨|补货|補貨時間|补货时间)[:：]?\s*([0-9/:.\-\s]+(?:上午|下午)?\s*[0-9/:.\-\s]*)/);
+    const m = text.match(/(?:補貨|补货|補貨時間|补货时间|Restock|Restock Time|Next Restock)[:：]?\s*([0-9/:.\-\s]+(?:上午|下午|AM|PM)?\s*[0-9/:.\-\s]*)/i);
     return m ? m[1].trim() : '-';
   }
 
@@ -581,7 +784,7 @@
       if (!text || text.length > 900) continue;
       if (isDetailTextBlock(text)) continue;
 
-      const stocks = text.match(/(?:库存|庫存)\s*[0-9,]+\s*\/\s*[0-9,]+/g) || [];
+      const stocks = text.match(/(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi) || [];
       if (stocks.length !== 1) continue;
 
       const stock = extractStock(text);
@@ -613,9 +816,9 @@
   function isProfessionScanPage(text) {
     const t = String(text || '');
     return (
-      t.includes('港口情報') &&
-      (t.includes('上次刷新') || t.includes('上次補貨') || t.includes('上次补货')) &&
-      (t.includes('庫存') || t.includes('库存'))
+      (t.includes('港口情報') || t.includes('港口情报') || t.includes('Port Info') || t.includes('Port Intel')) &&
+      (t.includes('上次刷新') || t.includes('上次補貨') || t.includes('上次补货') || t.includes('Last Refresh') || t.includes('Last Restock')) &&
+      (t.includes('庫存') || t.includes('库存') || t.includes('Stock') || t.includes('Quantity'))
     );
   }
 
@@ -633,14 +836,14 @@
 
   function extractSkillRefreshTimestamp(text, reference = new Date()) {
     const raw = String(text || '');
-    let m = raw.match(/(?:上次刷新|上次補貨|上次补货)\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    let m = raw.match(/(?:上次刷新|上次補貨|上次补货|Last\s+Refresh|Last\s+Restock)\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (m) {
       const [, y, mo, d, h, mi, s] = m;
       const ts = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s || 0)).getTime();
       return Number.isFinite(ts) ? ts : null;
     }
 
-    m = raw.match(/(?:上次刷新|上次補貨|上次补货)\s*(\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    m = raw.match(/(?:上次刷新|上次補貨|上次补货|Last\s+Refresh|Last\s+Restock)\s*(\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (!m) return null;
 
     const [, mo, d, h, mi, s] = m;
@@ -666,9 +869,9 @@
 
       const text = el.innerText?.trim();
       if (!text || text.length > 1200) continue;
-      if (!/上次(?:刷新|補貨|补货)/.test(text)) continue;
+      if (!/(上次(?:刷新|補貨|补货)|Last\s+(?:Refresh|Restock))/i.test(text)) continue;
 
-      const stocks = text.match(/(?:库存|庫存)\s*[0-9,]+\s*\/\s*[0-9,]+/g) || [];
+      const stocks = text.match(/(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi) || [];
       if (stocks.length !== 1) continue;
 
       const stock = extractStock(text);
@@ -816,7 +1019,7 @@
     if (changed > 0) {
       const label = isSkillScan ? '技能掃描' : '頁面觀察';
       console.log(`[StellaTrade] 已更新 ${portDef.port}：${changed} 項商品（${label}）`);
-      if (isSkillScan && readSettings().showToast) showSyncToast('✅ 港口情報已掃描', `${portDef.port} 已讀取 ${uploadGoods.length} 項商品`);
+      if (isSkillScan && readSettings().showToast) showSyncToast(t('skillScanToastTitle'), t('skillScanToastMessage', { port: displayPortName(portDef.port), n: uploadGoods.length }));
     }
     return true;
   }
@@ -855,9 +1058,9 @@
     if (settings.showToast && now - lastToastAt >= TOAST_COOLDOWN) {
       lastToastAt = now;
       if (type === 'upload') {
-        showSyncToast('⚠️ 上傳雲端失敗', `資料目前只保存在本機。原因：${syncState.lastError || '未知錯誤'}`);
+        showSyncToast(t('uploadFailTitle'), t('uploadFailMessage', { reason: syncState.lastError || '未知錯誤' }));
       } else {
-        showSyncToast('⚠️ 雲端同步失敗', `原因：${syncState.lastError || '未知錯誤'}`);
+        showSyncToast(t('syncFailTitle'), t('syncFailMessage', { reason: syncState.lastError || '未知錯誤' }));
       }
     }
 
@@ -912,7 +1115,7 @@
           const sheetName = parsed.data.sheetName ? `，寫入頁籤：${parsed.data.sheetName}` : '';
           if (staleSkipped > 0 && skipped === 0) {
             markSyncSuccess();
-            if (readSettings().showToast) showSyncToast('☁️ 雲端資料較新', `本次 ${staleSkipped} 筆舊資料已略過，不算失敗${sheetName}`);
+            if (readSettings().showToast) showSyncToast(t('cloudNewerTitle'), t('cloudNewerMessage', { n: staleSkipped, sheet: sheetName }));
             return;
           }
           markSyncFailure('upload', `雲端收到請求，但沒有寫入商品。accepted=0，skipped=${skipped}，staleSkipped=${staleSkipped}${sheetName}`);
@@ -1086,24 +1289,24 @@
       onload(response) {
         if (response.status !== 200) {
           markSyncFailure('ping', `HTTP ${response.status} ${String(response.responseText || '').slice(0, 160)}`);
-          showSyncToast('⚠️ 雲端連線測試失敗', syncState.lastError || '未知錯誤');
+          showSyncToast(t('pingFailTitle'), syncState.lastError || '未知錯誤');
           renderPanel();
           return;
         }
         const parsed = parseCloudJsonResponse(response);
         if (!parsed.ok || !parsed.data || parsed.data.status !== 'success') {
           markSyncFailure('ping', parsed.message || 'ping 回傳不是 success');
-          showSyncToast('⚠️ 雲端連線測試失敗', syncState.lastError || '未知錯誤');
+          showSyncToast(t('pingFailTitle'), syncState.lastError || '未知錯誤');
           renderPanel();
           return;
         }
         markSyncSuccess();
-        showSyncToast('✅ 雲端連線正常', `Web App 回應正常｜${parsed.data.time || ''}`);
+        showSyncToast(t('pingOkTitle'), t('pingOkMessage', { time: parsed.data.time || '' }));
         renderPanel();
       },
       onerror(error) {
         markSyncFailure('ping', error);
-        showSyncToast('⚠️ 雲端連線測試失敗', syncState.lastError || '未知錯誤');
+        showSyncToast(t('pingFailTitle'), syncState.lastError || '未知錯誤');
         renderPanel();
       }
     });
@@ -1520,17 +1723,17 @@
 
   function renderSyncStatus(compact = false) {
     if (syncState.ok === true) {
-      const time = syncState.lastSuccessAt ? `　最後同步 ${timeOnly(syncState.lastSuccessAt)}` : '';
-      return `<div class="stella-sync-status stella-sync-ok"><span>雲端同步：正常${escapeHtml(time)}</span></div>`;
+      const time = syncState.lastSuccessAt ? `　${t('syncLast')} ${timeOnly(syncState.lastSuccessAt)}` : '';
+      return `<div class="stella-sync-status stella-sync-ok"><span>${escapeHtml(t('syncOk'))}${escapeHtml(time)}</span></div>`;
     }
     if (syncState.ok === false) {
       const time = syncState.lastFailureAt ? `　${timeOnly(syncState.lastFailureAt)}` : '';
-      const prefix = compact ? '同步失敗' : '雲端同步：失敗';
+      const prefix = compact ? t('syncFailCompact') : t('syncFail');
       const error = syncState.lastError ? `｜${syncState.lastError}` : '';
-      const hint = compact ? '' : '　請看設定頁的錯誤詳情';
-      return `<div class="stella-sync-status stella-sync-fail"><span>${prefix}${escapeHtml(time)}${escapeHtml(error)}${hint}</span></div>`;
+      const hint = compact ? '' : t('syncHint');
+      return `<div class="stella-sync-status stella-sync-fail"><span>${escapeHtml(prefix)}${escapeHtml(time)}${escapeHtml(error)}${escapeHtml(hint)}</span></div>`;
     }
-    return `<div class="stella-sync-status stella-sync-wait"><span>雲端同步：確認中</span></div>`;
+    return `<div class="stella-sync-status stella-sync-wait"><span>${escapeHtml(t('syncWait'))}</span></div>`;
   }
 
   function renderChangesTab(changes) {
@@ -1538,21 +1741,21 @@
       return `
         <div class="stella-empty-state">
           <div class="stella-empty-icon">✓</div>
-          <div class="stella-empty-title">目前沒有新的貨物變化</div>
-          <div class="stella-empty-sub">同步後若有港口商品變化，會顯示在這裡。</div>
+          <div class="stella-empty-title">${escapeHtml(t('emptyChangesTitle'))}</div>
+          <div class="stella-empty-sub">${escapeHtml(t('emptyChangesSub'))}</div>
         </div>
       `;
     }
 
     return `
       <div class="stella-panel-toolbar">
-        <div class="stella-panel-hint">自上次標記已讀後，共 ${totalChangeCount(changes)} 項變化。</div>
-        <button class="stella-small-btn stella-read-btn" data-stella-action="mark-read">標記為已讀</button>
+        <div class="stella-panel-hint">${escapeHtml(t('changesSinceRead', { n: totalChangeCount(changes) }))}</div>
+        <button class="stella-small-btn stella-read-btn" data-stella-action="mark-read">${escapeHtml(t('markRead'))}</button>
       </div>
       <div class="stella-change-list">
         ${changes.map(portChange => `
           <section class="stella-change-card">
-            <div class="stella-change-port">${escapeHtml(portChange.port)}</div>
+            <div class="stella-change-port">${escapeHtml(displayPortName(portChange.port))}</div>
             <div class="stella-change-items">
               ${portChange.items.map(change => renderChangeItem(change)).join('')}
             </div>
@@ -1563,16 +1766,16 @@
   }
 
   function renderChangeItem(change) {
-    const item = escapeHtml(change.item);
+    const item = escapeHtml(displayItemName(change.item));
 
     if (change.type === 'new') {
       const info = change.newInfo;
       return `
         <div class="stella-change-row">
           <span class="stella-change-name">${item}</span>
-          <span class="stella-change-pill stella-change-up">新增商品</span>
+          <span class="stella-change-pill stella-change-up">${escapeHtml(t('newItem'))}</span>
           <span class="stella-change-stock">${escapeHtml(itemStockText(info))}</span>
-          <span class="stella-change-price">${escapeHtml(info.price || '-')} 魚幣</span>
+          <span class="stella-change-price">${escapeHtml(coinText(info.price || '-'))}</span>
         </div>
       `;
     }
@@ -1582,9 +1785,9 @@
       return `
         <div class="stella-change-row">
           <span class="stella-change-name">${item}</span>
-          <span class="stella-change-pill stella-change-muted">商品消失</span>
-          <span class="stella-change-stock">原 ${escapeHtml(itemStockText(info))}</span>
-          <span class="stella-change-price">${escapeHtml(info.price || '-')} 魚幣</span>
+          <span class="stella-change-pill stella-change-muted">${escapeHtml(t('itemRemoved'))}</span>
+          <span class="stella-change-stock">${escapeHtml(t('original'))} ${escapeHtml(itemStockText(info))}</span>
+          <span class="stella-change-price">${escapeHtml(coinText(info.price || '-'))}</span>
         </div>
       `;
     }
@@ -1603,7 +1806,7 @@
         <span class="stella-change-stock">${escapeHtml(itemStockText(oldInfo))} → ${escapeHtml(itemStockText(newInfo))}</span>
         <span class="stella-change-pill ${deltaClass}">${escapeHtml(deltaText)}</span>
         ${priceChanged ? `<span class="stella-change-pill stella-change-price-diff">${escapeHtml(oldInfo.price || '-')} → ${escapeHtml(newInfo.price || '-')}</span>` : ''}
-        ${restockChanged ? `<span class="stella-change-pill stella-change-restock">補貨變化</span>` : ''}
+        ${restockChanged ? `<span class="stella-change-pill stella-change-restock">${escapeHtml(t('restockChanged'))}</span>` : ''}
       </div>
     `;
   }
@@ -1623,12 +1826,12 @@
 
           return `
             <button class="stella-overview-card ${changedCount ? 'stella-overview-changed' : ''}" data-stella-action="select-port" data-port="${escapeHtml(def.port)}">
-              <div class="stella-overview-name">${escapeHtml(def.port)}</div>
-              <div class="stella-overview-meta">${entries.length} 項商品</div>
-              <div class="stella-overview-line">最後更新：${escapeHtml(latest)}</div>
+              <div class="stella-overview-name">${escapeHtml(displayPortName(def.port))}</div>
+              <div class="stella-overview-meta">${escapeHtml(t('itemCount', { n: entries.length }))}</div>
+              <div class="stella-overview-line">${escapeHtml(t('lastUpdate', { time: latest }))}</div>
               <div class="stella-overview-badges">
-                <span class="${lowCount ? 'stella-badge-warn' : 'stella-badge-ok'}">低庫存 ${lowCount}</span>
-                ${changedCount ? `<span class="stella-badge-change">變化 ${changedCount}</span>` : '<span class="stella-badge-muted">無變化</span>'}
+                <span class="${lowCount ? 'stella-badge-warn' : 'stella-badge-ok'}">${escapeHtml(t('lowStock', { n: lowCount }))}</span>
+                ${changedCount ? `<span class="stella-badge-change">${escapeHtml(t('changeCount', { n: changedCount }))}</span>` : `<span class="stella-badge-muted">${escapeHtml(t('noChange'))}</span>`}
               </div>
             </button>
           `;
@@ -1644,16 +1847,16 @@
       const [nameA, infoA] = a;
       const [nameB, infoB] = b;
 
-      if (sortMode === 'name') return nameA.localeCompare(nameB, 'zh-Hant');
+      if (sortMode === 'name') return displayItemName(nameA).localeCompare(displayItemName(nameB), currentLang() === 'en' ? 'en' : 'zh-Hant');
 
       if (sortMode === 'price') {
         const pa = num(infoA.price) ?? Number.MAX_SAFE_INTEGER;
         const pb = num(infoB.price) ?? Number.MAX_SAFE_INTEGER;
-        return pa - pb || nameA.localeCompare(nameB, 'zh-Hant');
+        return pa - pb || displayItemName(nameA).localeCompare(displayItemName(nameB), currentLang() === 'en' ? 'en' : 'zh-Hant');
       }
 
       if (sortMode === 'time') {
-        return String(infoB.time || '').localeCompare(String(infoA.time || '')) || nameA.localeCompare(nameB, 'zh-Hant');
+        return String(infoB.time || '').localeCompare(String(infoA.time || '')) || displayItemName(nameA).localeCompare(displayItemName(nameB), currentLang() === 'en' ? 'en' : 'zh-Hant');
       }
 
       const lowA = lowStock(infoA, settings) ? 0 : 1;
@@ -1662,7 +1865,7 @@
       const maxB = Number(infoB.max || 0);
       const ratioA = maxA > 0 ? Number(infoA.count || 0) / maxA : Number(infoA.count || 0) / 9999;
       const ratioB = maxB > 0 ? Number(infoB.count || 0) / maxB : Number(infoB.count || 0) / 9999;
-      return lowA - lowB || ratioA - ratioB || nameA.localeCompare(nameB, 'zh-Hant');
+      return lowA - lowB || ratioA - ratioB || displayItemName(nameA).localeCompare(displayItemName(nameB), currentLang() === 'en' ? 'en' : 'zh-Hant');
     });
   }
 
@@ -1680,28 +1883,28 @@
         <aside class="stella-port-nav">
           ${ports.map(def => `
             <button class="stella-port-nav-btn ${def.port === selectedPort ? 'active' : ''}" data-stella-action="select-port" data-port="${escapeHtml(def.port)}">
-              ${escapeHtml(def.port)}
+              ${escapeHtml(displayPortName(def.port))}
             </button>
           `).join('')}
         </aside>
         <section class="stella-port-detail">
           <div class="stella-port-detail-head">
             <div>
-              <div class="stella-port-detail-title">${escapeHtml(selectedPort)}</div>
-              <div class="stella-port-detail-sub">${sorted.length} 項商品，最後更新 ${escapeHtml(latestTimeForPort(items))}</div>
+              <div class="stella-port-detail-title">${escapeHtml(displayPortName(selectedPort))}</div>
+              <div class="stella-port-detail-sub">${escapeHtml(t('itemCount', { n: sorted.length }))}，${escapeHtml(t('lastUpdate', { time: latestTimeForPort(items) }))}</div>
             </div>
             <label class="stella-sort-label">
-              排序
+              ${escapeHtml(t('sort'))}
               <select data-stella-setting="sortMode" class="stella-select">
-                <option value="lowStock" ${state.sortMode === 'lowStock' ? 'selected' : ''}>低庫存</option>
-                <option value="time" ${state.sortMode === 'time' ? 'selected' : ''}>更新時間</option>
-                <option value="price" ${state.sortMode === 'price' ? 'selected' : ''}>價格</option>
-                <option value="name" ${state.sortMode === 'name' ? 'selected' : ''}>商品名稱</option>
+                <option value="lowStock" ${state.sortMode === 'lowStock' ? 'selected' : ''}>${escapeHtml(t('sortLowStock'))}</option>
+                <option value="time" ${state.sortMode === 'time' ? 'selected' : ''}>${escapeHtml(t('sortTime'))}</option>
+                <option value="price" ${state.sortMode === 'price' ? 'selected' : ''}>${escapeHtml(t('sortPrice'))}</option>
+                <option value="name" ${state.sortMode === 'name' ? 'selected' : ''}>${escapeHtml(t('sortName'))}</option>
               </select>
             </label>
           </div>
           <div class="stella-goods-table">
-            ${sorted.map(([itemName, info]) => renderPortItemRow(itemName, info, changeByItem.get(itemName), settings)).join('') || '<div class="stella-empty-line">目前沒有商品資料</div>'}
+            ${sorted.map(([itemName, info]) => renderPortItemRow(itemName, info, changeByItem.get(itemName), settings)).join('') || `<div class="stella-empty-line">${escapeHtml(t('goodsEmpty'))}</div>`}
           </div>
         </section>
       </div>
@@ -1711,16 +1914,16 @@
   function renderPortItemRow(itemName, info, change, settings) {
     const count = Number(info.count || 0);
     const max = Number(info.max || 0);
-    const price = info.price && info.price !== '-' ? `${info.price} 魚幣` : '-';
+    const price = info.price && info.price !== '-' ? coinText(info.price) : '-';
     const low = lowStock(info, settings);
     const changeHtml = change ? renderMiniChange(change) : '<span class="stella-mini-muted">-</span>';
-    const restockSourceText = info.lastRestockSource === 'skill_scan' && info.lastRestockAt ? '　補貨基準：技能掃描' : '';
+    const restockSourceText = info.lastRestockSource === 'skill_scan' && info.lastRestockAt ? t('restockBasisSkill') : '';
 
     return `
       <div class="stella-good-row ${low ? 'low' : ''}">
         <div class="stella-good-main">
-          <div class="stella-good-name">${escapeHtml(itemName)}</div>
-          <div class="stella-good-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}　推估補貨：${escapeHtml(restockEstimateText(info))}${escapeHtml(restockSourceText)}</div>
+          <div class="stella-good-name">${escapeHtml(displayItemName(itemName))}</div>
+          <div class="stella-good-meta">${escapeHtml(t('update'))}：${escapeHtml(info.time || '尚未更新')}　${escapeHtml(t('restock'))}：${escapeHtml(info.restock || '-')}　${escapeHtml(t('estimatedRestock'))}：${escapeHtml(restockEstimateText(info))}${escapeHtml(restockSourceText)}</div>
         </div>
         <div class="stella-good-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</div>
         <div class="stella-good-price">${escapeHtml(price)}</div>
@@ -1730,12 +1933,12 @@
   }
 
   function renderMiniChange(change) {
-    if (change.type === 'new') return '<span class="stella-mini-up">新增</span>';
-    if (change.type === 'removed') return '<span class="stella-mini-muted">消失</span>';
+    if (change.type === 'new') return `<span class="stella-mini-up">${escapeHtml(t('added'))}</span>`;
+    if (change.type === 'removed') return `<span class="stella-mini-muted">${escapeHtml(t('disappeared'))}</span>`;
     const delta = Number(change.delta || 0);
     if (delta > 0) return `<span class="stella-mini-up">+${delta}</span>`;
     if (delta < 0) return `<span class="stella-mini-down">${delta}</span>`;
-    return '<span class="stella-mini-warn">變更</span>';
+    return `<span class="stella-mini-warn">${escapeHtml(t('changed'))}</span>`;
   }
 
   function renderSettingsTab() {
@@ -1745,44 +1948,56 @@
       <div class="stella-settings-list">
         <label class="stella-setting-row">
           <div>
-            <div class="stella-setting-title">顯示同步失敗提示</div>
-            <div class="stella-setting-sub">失敗時右上角跳出提醒。</div>
+            <div class="stella-setting-title">${escapeHtml(t('settingsLanguage'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('settingsLanguageSub'))}</div>
+          </div>
+          <select class="stella-select" data-stella-setting="language">
+            <option value="auto" ${settings.language === 'auto' ? 'selected' : ''}>${escapeHtml(t('langAuto'))}</option>
+            <option value="zh" ${settings.language === 'zh' ? 'selected' : ''}>${escapeHtml(t('langZh'))}</option>
+            <option value="en" ${settings.language === 'en' ? 'selected' : ''}>${escapeHtml(t('langEn'))}</option>
+          </select>
+        </label>
+
+        <label class="stella-setting-row">
+          <div>
+            <div class="stella-setting-title">${escapeHtml(t('showToast'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('showToastSub'))}</div>
           </div>
           <input type="checkbox" data-stella-setting="showToast" ${settings.showToast ? 'checked' : ''}>
         </label>
 
         <label class="stella-setting-row">
           <div>
-            <div class="stella-setting-title">顯示變化角標</div>
-            <div class="stella-setting-sub">上方跑商情報按鈕顯示變化數字。</div>
+            <div class="stella-setting-title">${escapeHtml(t('showBadge'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('showBadgeSub'))}</div>
           </div>
           <input type="checkbox" data-stella-setting="showBadge" ${settings.showBadge ? 'checked' : ''}>
         </label>
 
         <label class="stella-setting-row">
           <div>
-            <div class="stella-setting-title">顯示航程預估</div>
-            <div class="stella-setting-sub">在港口下方簡化資訊中顯示預計到達與返航。</div>
+            <div class="stella-setting-title">${escapeHtml(t('showTravel'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('showTravelSub'))}</div>
           </div>
           <input type="checkbox" data-stella-setting="showTravelEstimate" ${settings.showTravelEstimate ? 'checked' : ''}>
         </label>
 
         <label class="stella-setting-row">
           <div>
-            <div class="stella-setting-title">開啟面板預設頁</div>
-            <div class="stella-setting-sub">下次打開情報面板時優先顯示。</div>
+            <div class="stella-setting-title">${escapeHtml(t('defaultPage'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('defaultPageSub'))}</div>
           </div>
           <select class="stella-select" data-stella-setting="defaultTab">
-            <option value="changes" ${settings.defaultTab === 'changes' ? 'selected' : ''}>變化</option>
-            <option value="overview" ${settings.defaultTab === 'overview' ? 'selected' : ''}>概覽</option>
-            <option value="ports" ${settings.defaultTab === 'ports' ? 'selected' : ''}>港口</option>
+            <option value="changes" ${settings.defaultTab === 'changes' ? 'selected' : ''}>${escapeHtml(t('tabChanges'))}</option>
+            <option value="overview" ${settings.defaultTab === 'overview' ? 'selected' : ''}>${escapeHtml(t('tabOverview'))}</option>
+            <option value="ports" ${settings.defaultTab === 'ports' ? 'selected' : ''}>${escapeHtml(t('tabPorts'))}</option>
           </select>
         </label>
 
         <label class="stella-setting-row">
           <div>
-            <div class="stella-setting-title">低庫存比例</div>
-            <div class="stella-setting-sub">低於比例時，港口與商品會被標記。</div>
+            <div class="stella-setting-title">${escapeHtml(t('lowStockRatio'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('lowStockRatioSub'))}</div>
           </div>
           <select class="stella-select" data-stella-setting="lowStockRatio">
             <option value="0.10" ${Number(settings.lowStockRatio) === 0.10 ? 'selected' : ''}>10%</option>
@@ -1794,20 +2009,20 @@
 
         <div class="stella-setting-row stella-diagnostic-row">
           <div>
-            <div class="stella-setting-title">雲端診斷</div>
-            <div class="stella-setting-sub">網址：${escapeHtml(getApiUrl())}</div>
-            <div class="stella-setting-sub">狀態：${syncState.ok === true ? '正常' : syncState.ok === false ? '失敗' : '確認中'}</div>
-            <div class="stella-setting-sub">最後成功：${syncState.lastSuccessAt ? escapeHtml(new Date(syncState.lastSuccessAt).toLocaleString()) : '-'}</div>
-            <div class="stella-setting-sub">最後失敗：${syncState.lastFailureAt ? escapeHtml(new Date(syncState.lastFailureAt).toLocaleString()) : '-'}</div>
-            <div class="stella-setting-sub stella-error-detail">錯誤：${escapeHtml(syncState.lastError || '-')}</div>
+            <div class="stella-setting-title">${escapeHtml(t('cloudDiag'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('url'))}：${escapeHtml(getApiUrl())}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('status'))}：${syncState.ok === true ? escapeHtml(t('normal')) : syncState.ok === false ? escapeHtml(t('failed')) : escapeHtml(t('checking'))}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('lastSuccess'))}：${syncState.lastSuccessAt ? escapeHtml(new Date(syncState.lastSuccessAt).toLocaleString()) : '-'}</div>
+            <div class="stella-setting-sub">${escapeHtml(t('lastFailure'))}：${syncState.lastFailureAt ? escapeHtml(new Date(syncState.lastFailureAt).toLocaleString()) : '-'}</div>
+            <div class="stella-setting-sub stella-error-detail">${escapeHtml(t('error'))}：${escapeHtml(syncState.lastError || '-')}</div>
           </div>
         </div>
 
         <div class="stella-setting-actions">
-          <button class="stella-danger-btn" data-stella-action="reset-seen">重置變化紀錄</button>
-          <button class="stella-small-btn" data-stella-action="scan-current">掃描目前畫面</button>
-          <button class="stella-small-btn" data-stella-action="manual-sync">立即同步雲端</button>
-          <button class="stella-small-btn" data-stella-action="cloud-ping">測試雲端連線</button>
+          <button class="stella-danger-btn" data-stella-action="reset-seen">${escapeHtml(t('resetChanges'))}</button>
+          <button class="stella-small-btn" data-stella-action="scan-current">${escapeHtml(t('scanCurrent'))}</button>
+          <button class="stella-small-btn" data-stella-action="manual-sync">${escapeHtml(t('syncNow'))}</button>
+          <button class="stella-small-btn" data-stella-action="cloud-ping">${escapeHtml(t('pingCloud'))}</button>
         </div>
       </div>
     `;
@@ -1834,30 +2049,30 @@
 
     const panelHtml = `
       <div id="stella-trade-modal-backdrop">
-        <div id="stella-trade-panel" role="dialog" aria-label="跑商情報站">
+        <div id="stella-trade-panel" role="dialog" aria-label="${escapeHtml(t('panelTitle'))}">
           <div class="stella-panel-header">
             <div>
-              <div class="stella-panel-title">🚢 跑商情報站</div>
-              <div class="stella-panel-subtitle">港口庫存・價格・變化追蹤</div>
+              <div class="stella-panel-title">${escapeHtml(t('panelTitle'))}</div>
+              <div class="stella-panel-subtitle">${escapeHtml(t('panelSubtitle'))}</div>
             </div>
             <div class="stella-panel-actions">
-              <button class="stella-icon-btn" data-stella-action="manual-sync" title="立即同步">↻</button>
-              <button class="stella-icon-btn" data-stella-action="close-panel" title="關閉">×</button>
+              <button class="stella-icon-btn" data-stella-action="manual-sync" title="${escapeHtml(t('syncNow'))}">↻</button>
+              <button class="stella-icon-btn" data-stella-action="close-panel" title="${escapeHtml(t('close'))}">×</button>
             </div>
           </div>
 
           <div class="stella-panel-status-row">
             ${renderSyncStatus()}
             <div class="stella-change-summary ${changeCount ? 'has-change' : ''}">
-              ${changeCount ? `有 ${changeCount} 項變化` : '沒有新的變化'}
+              ${escapeHtml(changeCount ? t('hasChanges', { n: changeCount }) : t('noNewChanges'))}
             </div>
           </div>
 
           <nav class="stella-tabs">
-            ${renderTabButton('changes', '變化', selectedTab, changeCount)}
-            ${renderTabButton('overview', '概覽', selectedTab)}
-            ${renderTabButton('ports', '港口', selectedTab)}
-            ${renderTabButton('settings', '設定', selectedTab)}
+            ${renderTabButton('changes', t('tabChanges'), selectedTab, changeCount)}
+            ${renderTabButton('overview', t('tabOverview'), selectedTab)}
+            ${renderTabButton('ports', t('tabPorts'), selectedTab)}
+            ${renderTabButton('settings', t('tabSettings'), selectedTab)}
           </nav>
 
           <div class="stella-panel-body">
@@ -1875,7 +2090,7 @@
   function renderTabButton(tab, label, selectedTab, count = 0) {
     return `
       <button class="stella-tab ${selectedTab === tab ? 'active' : ''}" data-stella-action="switch-tab" data-tab="${tab}">
-        ${label}${count ? `<span>${count}</span>` : ''}
+        ${escapeHtml(label)}${count ? `<span>${count}</span>` : ''}
       </button>
     `;
   }
@@ -1919,7 +2134,7 @@
         if (x.rect.height > 96) return false;
         if (x.rect.width < 220) return false;
         if (x.text.length > 500) return false;
-        return /出營|分莊|統計|我的隊伍|交戰|首頁|出海|市場|交易|Discord/.test(x.text);
+        return /出營|分莊|統計|我的隊伍|交戰|首頁|出海|市場|交易|Discord|Home|Market|Trade|Warehouse|Adventure|Profile|Stats|Crew|Battle/.test(x.text);
       })
       .sort((a, b) => (a.rect.top - b.rect.top) || (b.buttons.length - a.buttons.length));
 
@@ -1964,7 +2179,7 @@
 
     const badge = settings.showBadge && count > 0 ? `<span class="stella-launcher-badge">${count}</span>` : '';
     const failBadge = fail ? '<span class="stella-launcher-alert">!</span>' : '';
-    btn.innerHTML = `<span>跑商情報</span>${failBadge}${badge}`;
+    btn.innerHTML = `<span>${escapeHtml(t('launcher'))}</span>${failBadge}${badge}`;
   }
 
   function scheduleLauncherUpdate() {
@@ -2028,7 +2243,7 @@
     const hh = String(date.getHours()).padStart(2, '0');
     const mm = String(date.getMinutes()).padStart(2, '0');
     if (sameDate(date, now)) return `${hh}:${mm}`;
-    if (tomorrow(date, now)) return `明天 ${hh}:${mm}`;
+    if (tomorrow(date, now)) return `${t('tomorrow')} ${hh}:${mm}`;
     return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${hh}:${mm}`;
   }
 
@@ -2047,11 +2262,11 @@
     if (!schedule) return '';
     return `
       <div class="stella-travel-schedule">
-        <div class="stella-travel-title">航程預估</div>
+        <div class="stella-travel-title">${escapeHtml(t('travelTitle'))}</div>
         <div class="stella-travel-grid">
-          <div><span class="stella-travel-label">航行時間</span><strong>${escapeHtml(schedule.durationRaw)}</strong></div>
-          <div><span class="stella-travel-label">預計到達</span><strong>${escapeHtml(schedule.arriveAtText)}</strong></div>
-          <div><span class="stella-travel-label">預計返航</span><strong>${escapeHtml(schedule.returnAtText)}</strong></div>
+          <div><span class="stella-travel-label">${escapeHtml(t('travelDuration'))}</span><strong>${escapeHtml(schedule.durationRaw)}</strong></div>
+          <div><span class="stella-travel-label">${escapeHtml(t('travelArrive'))}</span><strong>${escapeHtml(schedule.arriveAtText)}</strong></div>
+          <div><span class="stella-travel-label">${escapeHtml(t('travelReturn'))}</span><strong>${escapeHtml(schedule.returnAtText)}</strong></div>
         </div>
       </div>
     `;
@@ -2067,23 +2282,23 @@
       <div class="stella-detail-goods stella-detail-compact">
         ${travelHtml}
         ${renderSyncStatus(true)}
-        <div class="stella-detail-goods-head"><span>貨物情報</span><span>${entries.length} 項</span></div>
+        <div class="stella-detail-goods-head"><span>${escapeHtml(t('goodsInfo'))}</span><span>${escapeHtml(t('itemsShort', { n: entries.length }))}</span></div>
         <div class="stella-detail-goods-grid">
           ${entries.map(([itemName, info]) => {
             const count = Number(info.count || 0);
             const max = Number(info.max || 0);
-            const price = info.price && info.price !== '-' ? `${info.price} 魚幣` : '-';
+            const price = info.price && info.price !== '-' ? coinText(info.price) : '-';
             return `
               <div class="stella-detail-good">
                 <div class="stella-detail-good-top">
-                  <span class="stella-detail-name">${escapeHtml(itemName)}</span>
+                  <span class="stella-detail-name">${escapeHtml(displayItemName(itemName))}</span>
                   <span class="stella-detail-stock" style="color:${stockColor(count, max)};">${escapeHtml(itemStockText(info))}</span>
                   <span class="stella-detail-price">${escapeHtml(price)}</span>
                 </div>
-                <div class="stella-detail-meta">更新：${escapeHtml(info.time || '尚未更新')}　補貨：${escapeHtml(info.restock || '-')}　推估：${escapeHtml(restockEstimateText(info))}</div>
+                <div class="stella-detail-meta">${escapeHtml(t('update'))}：${escapeHtml(info.time || '尚未更新')}　${escapeHtml(t('restock'))}：${escapeHtml(info.restock || '-')}　${escapeHtml(t('estimate'))}：${escapeHtml(restockEstimateText(info))}</div>
               </div>
             `;
-          }).join('') || '<div class="stella-detail-empty">目前沒有同步資料</div>'}
+          }).join('') || `<div class="stella-detail-empty">${escapeHtml(t('noSyncData'))}</div>`}
         </div>
       </div>
     `;
@@ -2105,7 +2320,7 @@
     if (!el || !visible(el)) return false;
     const text = String(el.innerText || el.textContent || '').trim();
     if (!text || text.length > 20) return false;
-    return text === '出發' || text === '出发' || text.includes('出發') || text.includes('出发');
+    return text === '出發' || text === '出发' || /^(Depart|Set Sail|Sail|Go)$/i.test(text) || text.includes('出發') || text.includes('出发') || /Depart|Set Sail/i.test(text);
   }
 
   function findDepartElements() {
@@ -2138,7 +2353,7 @@
       if (!portName) continue;
       if (portCount(text) > 2) continue;
 
-      if (text.includes('首頁') || text.includes('倉庫') || text.includes('市場') || text.includes('Discord') || text.includes('職業') || text.includes('排行')) continue;
+      if (text.includes('首頁') || text.includes('倉庫') || text.includes('市場') || text.includes('Discord') || text.includes('職業') || text.includes('排行') || text.includes('Home') || text.includes('Warehouse') || text.includes('Market') || text.includes('Profession') || text.includes('Ranking')) continue;
 
       const rect = node.getBoundingClientRect();
       if (rect.width < 260 || rect.height < 110) continue;
@@ -2235,13 +2450,13 @@
 
     if (action === 'reset-seen') {
       markCurrentAsSeen();
-      showSyncToast('已重置變化紀錄', '目前資料已設為新的比對基準。');
+      showSyncToast(t('resetToastTitle'), t('resetToastMessage'));
       return;
     }
 
     if (action === 'scan-current') {
       const scanned = scrapeCurrentVisibleData({ upload: true, silent: false });
-      if (!scanned) showSyncToast('沒有掃到港口情報', '目前畫面沒有可讀取的商品卡，請先開啟港口情報或商品頁。');
+      if (!scanned) showSyncToast(t('noScanTitle'), t('noScanMessage'));
       return;
     }
 
@@ -2289,7 +2504,7 @@
     const el = target.closest('button, a, div, span');
     if (!el || el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback')) return false;
     const text = String(el.innerText || el.textContent || '').trim();
-    return text.includes('返航') || text.includes('返回') || text.includes('離港') || text.includes('离港') || text.includes('出發') || text.includes('出发');
+    return text.includes('返航') || text.includes('返回') || text.includes('離港') || text.includes('离港') || text.includes('出發') || text.includes('出发') || /Return|Back|Leave|Depart|Set Sail/i.test(text);
   }
 
   function handleInteraction(event) {
