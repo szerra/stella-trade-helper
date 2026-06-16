@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.48
-// @description  新增中英文顯示與英文商品/港口掃描支援，內部資料仍維持繁中 key。
+// @version      1.6.49
+// @description  修正手機設定頁排版，避免左右滑動；保留中英文顯示與英文掃描支援。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.48] 腳本已載入：i18n test');
+  console.log('[StellaTrade 1.6.49] 腳本已載入：i18n mobile settings fix');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -3392,8 +3392,56 @@
           gap: 5px !important;
         }
 
+        /* 1.6.49 手機設定頁修正：避免右側選單/按鈕把整個面板撐寬，害人左右滑動。 */
+        #stella-trade-panel,
+        .stella-panel-body,
+        .stella-settings-list,
         .stella-setting-row {
-          align-items: flex-start !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+        }
+
+        .stella-panel-body {
+          overflow-x: hidden !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+
+        .stella-setting-row {
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) !important;
+          align-items: stretch !important;
+          gap: 9px !important;
+        }
+
+        .stella-setting-row > div,
+        .stella-setting-title,
+        .stella-setting-sub,
+        .stella-error-detail {
+          min-width: 0 !important;
+          max-width: 100% !important;
+          overflow-wrap: anywhere !important;
+          word-break: break-word !important;
+        }
+
+        .stella-setting-row .stella-select,
+        .stella-setting-row .stella-small-btn,
+        .stella-setting-row .stella-danger-btn {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          justify-self: stretch !important;
+        }
+
+        .stella-setting-row input[type="checkbox"] {
+          justify-self: end !important;
+          width: 22px !important;
+          height: 22px !important;
+        }
+
+        .stella-setting-actions {
+          width: 100% !important;
+          display: grid !important;
+          grid-template-columns: 1fr !important;
         }
 
         #stella-trade-launcher-fallback {
