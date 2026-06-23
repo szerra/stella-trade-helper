@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.49
-// @description  修正手機設定頁排版，避免左右滑動；保留中英文顯示與英文掃描支援。
+// @version      1.6.50
+// @description  修正手機港口捲動、舊資料提示與未售罄補貨推估顯示；保留中英文掃描支援。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
 // @downloadURL  https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
 // @match        *://fishingidle.com/*
+// @match        *://www.fishingidle.com/*
+// @match        *://*.fishingidle.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      script.google.com
@@ -18,7 +20,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.49] 腳本已載入：i18n mobile settings fix');
+  console.log('[StellaTrade 1.6.50] 腳本已載入：mobile restock estimate fix');
 
   const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
 
@@ -38,6 +40,12 @@
   const CLOUD_PULL_AFTER_UPLOAD_DELAY = 45 * 1000;
   const AUTO_PUBLISH_INTERVAL = 5 * 60 * 1000;
   const TOAST_COOLDOWN = 60 * 1000;
+  const HIGH_STOCK_ANCHOR_RATIO = 0.75;
+  const RESTOCK_AFTER_SOLD_OUT_RATIO = 0.5;
+  const STALE_MARKET_MS = 10 * 60 * 60 * 1000;
+  const MIN_RESTOCK_PROJECTION_OBSERVATION_MS = 5 * 60 * 1000;
+  const MIN_STOCK_DELTA_FOR_PROJECTION_RATIO = 0.12;
+  const MAX_RESTOCK_PROJECTION_MS = 72 * 60 * 60 * 1000;
 
   const DEFAULT_SETTINGS = {
     defaultTab: 'changes',
@@ -782,7 +790,6 @@
 
       const text = el.innerText?.trim();
       if (!text || text.length > 900) continue;
-      if (isDetailTextBlock(text)) continue;
 
       const stocks = text.match(/(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi) || [];
       if (stocks.length !== 1) continue;
@@ -791,6 +798,7 @@
       if (!stock) continue;
 
       let itemName = extractItemNameByKnownList(text, portDef);
+      if (!itemName && isDetailTextBlock(text)) continue;
       if (!itemName) itemName = extractItemNameFallback(text);
       itemName = normItem(itemName);
       if (!itemName || isInvalidItemName(itemName)) continue;
@@ -878,6 +886,7 @@
       if (!stock) continue;
 
       let itemName = extractItemNameByKnownList(text, portDef);
+      if (!itemName && isDetailTextBlock(text)) continue;
       if (!itemName) itemName = extractItemNameFallback(text);
       itemName = normItem(itemName);
       if (!itemName || isInvalidItemName(itemName)) continue;
@@ -952,12 +961,14 @@
       const isSkillItem = good.source === 'skill_scan';
       const skillLastRestockAt = good.skillLastRestockAt || '';
       const skillLastRestockText = good.skillLastRestockText || '';
+      const goodPrice = good.price && good.price !== '-' ? good.price : (oldInfo.price || '-');
+      const goodRestock = good.restock && good.restock !== '-' ? good.restock : (oldInfo.restock || '-');
       const baseInfo = {
         count: good.count,
         max: good.max,
         time: time,
-        price: good.price || oldInfo.price || '-',
-        restock: good.restock || oldInfo.restock || '-',
+        price: goodPrice,
+        restock: goodRestock,
         lastRestockAt: skillLastRestockAt || oldInfo.lastRestockAt || '',
         lastRestockSource: skillLastRestockAt ? 'skill_scan' : (oldInfo.lastRestockSource || ''),
         observationSource: isSkillItem ? 'skill_scan' : 'page_observe',
@@ -1115,7 +1126,7 @@
           const sheetName = parsed.data.sheetName ? `，寫入頁籤：${parsed.data.sheetName}` : '';
           if (staleSkipped > 0 && skipped === 0) {
             markSyncSuccess();
-            if (readSettings().showToast) showSyncToast(t('cloudNewerTitle'), t('cloudNewerMessage', { n: staleSkipped, sheet: sheetName }));
+            console.log('[StellaTrade] 雲端資料較新，略過本機舊資料：', staleSkipped, sheetName);
             return;
           }
           markSyncFailure('upload', `雲端收到請求，但沒有寫入商品。accepted=0，skipped=${skipped}，staleSkipped=${staleSkipped}${sheetName}`);
@@ -1513,6 +1524,61 @@
     return incomingTime >= localTime;
   }
 
+  function localEstimateText(zh, en, vars = {}) {
+    let value = currentLang() === 'en' ? en : zh;
+    for (const [name, replacement] of Object.entries(vars || {})) {
+      value = value.replaceAll(`{${name}}`, String(replacement));
+    }
+    return value;
+  }
+
+  function restockTimeLabel(timestamp) {
+    const ts = toTimestamp(timestamp);
+    if (!ts) return '';
+    const text = formatClock(new Date(ts), new Date());
+    return `${ts < Date.now() ? localEstimateText('已過', 'Passed') : localEstimateText('約', 'Around')} ${text}`;
+  }
+
+  function projectedRestockFromAnchor(info) {
+    if (!info || typeof info !== 'object') return null;
+
+    const count = Number(info.count || 0);
+    const max = Number(info.max || info.restockAnchorMax || 0);
+    const anchorAt = toTimestamp(info.restockAnchorAt);
+    const anchorCount = num(info.restockAnchorCount);
+    const anchorMax = num(info.restockAnchorMax) || max;
+    const observedAt = explicitObservationVersionMs(info) || observationTimeMs(info) || Date.now();
+
+    if (count <= 0 || max <= 0 || !anchorAt || !anchorCount || !anchorMax) return null;
+    if (anchorCount <= count) return null;
+    if (anchorCount / anchorMax < HIGH_STOCK_ANCHOR_RATIO) return null;
+    if (observedAt <= anchorAt) return null;
+    if (observedAt - anchorAt > STALE_MARKET_MS) return null;
+
+    const soldAmount = anchorCount - count;
+    const minSoldAmount = Math.max(3, Math.ceil(anchorMax * MIN_STOCK_DELTA_FOR_PROJECTION_RATIO));
+    if (soldAmount < minSoldAmount) return null;
+
+    const elapsed = observedAt - anchorAt;
+    if (elapsed < MIN_RESTOCK_PROJECTION_OBSERVATION_MS) return null;
+
+    const msPerItem = elapsed / soldAmount;
+    const projectedSoldOutAt = observedAt + Math.round(count * msPerItem);
+    const fullSellDuration = Math.round(anchorMax * msPerItem);
+    const estimatedAt = projectedSoldOutAt + Math.round(fullSellDuration * RESTOCK_AFTER_SOLD_OUT_RATIO);
+    if (!Number.isFinite(estimatedAt) || estimatedAt <= observedAt) return null;
+    if (estimatedAt - observedAt > MAX_RESTOCK_PROJECTION_MS) return null;
+
+    return {
+      estimatedAt,
+      projectedSoldOutAt,
+      anchorCount,
+      anchorMax,
+      count,
+      max
+    };
+  }
+
   function restockEstimateText(info) {
     const count = Number(info?.count || 0);
     const estimatedAt = toTimestamp(info?.estimatedRestockAt);
@@ -1533,6 +1599,7 @@
     const shouldShowEstimate =
       !!estimatedAt &&
       (
+        status === 'api' ||
         status === 'estimated' ||
         status === 'inferred' ||
         count <= 0 ||
@@ -1540,10 +1607,12 @@
       );
 
     if (shouldShowEstimate) {
-      const now = new Date();
-      const text = formatClock(new Date(estimatedAt), now);
-      const prefix = estimatedAt < Date.now() ? `已過 ${text}` : `約 ${text}`;
+      const prefix = restockTimeLabel(estimatedAt);
       const isInferred = status === 'inferred' || /反推/.test(basis);
+
+      if (status === 'api') {
+        return basis ? `${prefix}（${basis}）` : `${prefix}（voyage API）`;
+      }
 
       if (isInferred) {
         return basis ? `${prefix}（${basis}）` : `${prefix}（反推）`;
@@ -1556,7 +1625,31 @@
       return '資料不足';
     }
 
-    return '尚未售罄';
+    const projection = projectedRestockFromAnchor(info);
+    if (projection) {
+      return localEstimateText(
+        '{time}（未售罄預估，錨點 {anchor}，現 {current}）',
+        '{time} (pre-sellout estimate, anchor {anchor}, now {current})',
+        {
+          time: restockTimeLabel(projection.estimatedAt),
+          anchor: `${projection.anchorCount}/${projection.anchorMax}`,
+          current: `${projection.count}/${projection.max}`
+        }
+      );
+    }
+
+    const anchorAt = toTimestamp(info?.restockAnchorAt);
+    const anchorCount = num(info?.restockAnchorCount);
+    const anchorMax = num(info?.restockAnchorMax) || Number(info?.max || 0);
+    if (anchorAt && anchorCount && anchorMax && anchorCount / anchorMax >= HIGH_STOCK_ANCHOR_RATIO) {
+      return localEstimateText(
+        '待售罄後反推（錨點 {anchor}）',
+        'Waiting for sellout (anchor {anchor})',
+        { anchor: `${anchorCount}/${anchorMax}` }
+      );
+    }
+
+    return localEstimateText('尚未售罄（需高庫存錨點或售罄）', 'Not sold out yet (needs high-stock anchor or sellout)');
   }
 
   function normalizeRestockTrackingFields(info) {
@@ -1583,7 +1676,7 @@
     if (anchorCount <= 0 || max <= 0) return false;
 
     const ratio = anchorCount / max;
-    return ratio >= 0.7;
+    return ratio >= HIGH_STOCK_ANCHOR_RATIO;
   }
 
   function inferEstimatedRestockAtFromAnchor(anchorAt, anchorCount, max, soldOutAt) {
@@ -1593,7 +1686,7 @@
     if (observedSellDuration <= 0) return '';
 
     const fullSellDuration = observedSellDuration * (max / anchorCount);
-    return soldOutAt + Math.round(fullSellDuration / 2);
+    return soldOutAt + Math.round(fullSellDuration * RESTOCK_AFTER_SOLD_OUT_RATIO);
   }
 
   function applyRestockEstimate(oldInfo, newInfo, observedAtMs = Date.now()) {
@@ -1620,7 +1713,7 @@
 
     if (max > 0) {
       const isFull = count >= max;
-      const isHighEnoughForInference = count > 0 && count >= Math.ceil(max * 0.7);
+      const isHighEnoughForInference = count > 0 && count >= Math.ceil(max * HIGH_STOCK_ANCHOR_RATIO);
       const roseFromZero = oldCount !== null && oldCount <= 0 && count > 0;
       const stockIncreased = oldCount !== null && count > oldCount;
 
@@ -1636,7 +1729,7 @@
           restockAnchorMax = max;
           estimateBasis = skillLockedRestock ? (estimateBasis || '技能掃描補貨時間') : '補滿後售罄';
         } else if (isHighEnoughForInference) {
-          // 沒有剛好看到滿貨，但看到 70% 以上庫存，之後售罄時可用這筆反推。
+          // 沒有剛好看到滿貨，但看到 75% 以上庫存，之後售罄時可用這筆反推。
           const shouldReplaceAnchor =
             !restockAnchorAt ||
             !restockAnchorCount ||
@@ -2085,6 +2178,13 @@
     const old = document.getElementById('stella-trade-modal-backdrop');
     if (old) old.outerHTML = panelHtml;
     else document.body.insertAdjacentHTML('beforeend', panelHtml);
+    requestAnimationFrame(scrollActivePortNavIntoView);
+  }
+
+  function scrollActivePortNavIntoView() {
+    const active = document.querySelector('#stella-trade-modal-backdrop .stella-port-nav-btn.active');
+    if (!active || typeof active.scrollIntoView !== 'function') return;
+    active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
   }
 
   function renderTabButton(tab, label, selectedTab, count = 0) {
@@ -3371,6 +3471,7 @@
           margin-top: 2px !important;
           min-height: 68px !important;
           align-items: center !important;
+          scroll-padding-inline: 18px !important;
           scrollbar-width: none !important;
         }
 
@@ -3392,7 +3493,14 @@
           gap: 5px !important;
         }
 
-        /* 1.6.49 手機設定頁修正：避免右側選單/按鈕把整個面板撐寬，害人左右滑動。 */
+        .stella-good-meta,
+        .stella-detail-meta {
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+          line-height: 1.45 !important;
+        }
+
+        /* 1.6.50 手機設定頁修正：避免右側選單/按鈕把整個面板撐寬，害人左右滑動。 */
         #stella-trade-panel,
         .stella-panel-body,
         .stella-settings-list,
