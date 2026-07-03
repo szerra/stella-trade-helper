@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.51
-// @description  修正手機面板左右上下滑動彈回；保留大陸雲伺服器連線與中英文掃描支援。
+// @version      1.6.52
+// @description  修正手機面板左右上下滑動彈回；舊資料提示與未售罄補貨推估顯示；保留中英文掃描支援。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -21,7 +21,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.51] 腳本已載入：mobile scroll rebound fix');
+  console.log('[StellaTrade 1.6.52] 腳本已載入：CN cloud + manual floating scan');
 
   const DEFAULT_API_URL = 'http://43.138.169.50:3000'; // 默認連線雲伺服器，不再依賴 Google/VPN
 
@@ -39,6 +39,7 @@
   const SETTINGS_KEY = 'stella_trade_panel_settings';
   const PANEL_STATE_KEY = 'stella_trade_panel_state';
   const SELECTED_PORT_KEY = 'stella_selected_port';
+  const QUICK_SCAN_FLOAT_KEY = 'stella_quick_scan_float_state';
 
   const CLICK_UPDATE_DELAY = 1200;
   const RETURN_UPDATE_COOLDOWN = 2500;
@@ -74,6 +75,7 @@
   let injectTimer = null;
   let panelRenderTimer = null;
   let launcherTimer = null;
+  let quickScanFloatTimer = null;
   let toastTimer = null;
   let autoPublishTimer = null;
   let lastClickUpdateAt = 0;
@@ -290,6 +292,7 @@
       sort: '排序', sortLowStock: '低庫存', sortTime: '更新時間', sortPrice: '價格', sortName: '商品名稱', goodsEmpty: '目前沒有商品資料',
       update: '更新', restock: '補貨', estimatedRestock: '推估補貨', restockBasisSkill: '　補貨基準：技能掃描', added: '新增', disappeared: '消失', changed: '變更',
       settingsLanguage: '語言', settingsLanguageSub: 'Auto 會優先依遊戲畫面判斷，再看瀏覽器語言。', langAuto: 'Auto', langZh: '中文', langEn: 'English',
+      quickScan: '手动扫描', quickScanSub: '返航前点一下', quickScanOkTitle: '✅ 手动扫描已送出', quickScanOkMessage: '已读取目前画面的港口商品，并送出云端上传。',
       showToast: '顯示同步失敗提示', showToastSub: '失敗時右上角跳出提醒。', showBadge: '顯示變化角標', showBadgeSub: '上方跑商情報按鈕顯示變化數字。', showTravel: '顯示航程預估', showTravelSub: '在港口下方簡化資訊中顯示預計到達與返航。', defaultPage: '開啟面板預設頁', defaultPageSub: '下次打開情報面板時優先顯示。', lowStockRatio: '低庫存比例', lowStockRatioSub: '低於比例時，港口與商品會被標記。', cloudDiag: '雲端診斷', url: '網址', status: '狀態', normal: '正常', failed: '失敗', checking: '確認中', lastSuccess: '最後成功', lastFailure: '最後失敗', error: '錯誤', resetChanges: '重置變化紀錄', scanCurrent: '掃描目前畫面', syncNow: '立即同步雲端', pingCloud: '測試雲端連線',
       panelTitle: '🚢 跑商情報站', panelSubtitle: '港口庫存・價格・變化追蹤', close: '關閉', hasChanges: '有 {n} 項變化', noNewChanges: '沒有新的變化', tabChanges: '變化', tabOverview: '概覽', tabPorts: '港口', tabSettings: '設定', launcher: '跑商情報',
       travelTitle: '航程預估', travelDuration: '航行時間', travelArrive: '預計到達', travelReturn: '預計返航', tomorrow: '明天', goodsInfo: '貨物情報', itemsShort: '{n} 項', estimate: '推估', noSyncData: '目前沒有同步資料',
@@ -303,6 +306,7 @@
       sort: 'Sort', sortLowStock: 'Low stock', sortTime: 'Update time', sortPrice: 'Price', sortName: 'Item name', goodsEmpty: 'No item data yet',
       update: 'Update', restock: 'Restock', estimatedRestock: 'Estimated restock', restockBasisSkill: '  Basis: skill scan', added: 'New', disappeared: 'Gone', changed: 'Changed',
       settingsLanguage: 'Language', settingsLanguageSub: 'Auto checks the game screen first, then browser language.', langAuto: 'Auto', langZh: '中文', langEn: 'English',
+      quickScan: 'Manual Scan', quickScanSub: 'Tap before return', quickScanOkTitle: '✅ Manual scan sent', quickScanOkMessage: 'Current port goods were read and queued for cloud upload.',
       showToast: 'Show sync failure toast', showToastSub: 'Show a toast in the upper-right when sync fails.', showBadge: 'Show change badge', showBadgeSub: 'Show the number of changes on the Trade Info button.', showTravel: 'Show travel estimate', showTravelSub: 'Show ETA and return time below port cards.', defaultPage: 'Default panel tab', defaultPageSub: 'Preferred tab when opening the panel.', lowStockRatio: 'Low stock threshold', lowStockRatioSub: 'Mark ports and items below this ratio.', cloudDiag: 'Cloud diagnostics', url: 'URL', status: 'Status', normal: 'OK', failed: 'Failed', checking: 'Checking', lastSuccess: 'Last success', lastFailure: 'Last failure', error: 'Error', resetChanges: 'Reset change record', scanCurrent: 'Scan current screen', syncNow: 'Sync now', pingCloud: 'Test cloud connection',
       panelTitle: '🚢 Trade Info Station', panelSubtitle: 'Port stock ・ prices ・ change tracking', close: 'Close', hasChanges: '{n} changes', noNewChanges: 'No new changes', tabChanges: 'Changes', tabOverview: 'Overview', tabPorts: 'Ports', tabSettings: 'Settings', launcher: 'Trade Info',
       travelTitle: 'Travel Estimate', travelDuration: 'Travel Time', travelArrive: 'ETA', travelReturn: 'Return ETA', tomorrow: 'Tomorrow', goodsInfo: 'Cargo Info', itemsShort: '{n} items', estimate: 'Estimate', noSyncData: 'No synced data yet',
@@ -688,7 +692,7 @@
   function getCleanPageText() {
     if (!document.body) return '';
     const clone = document.body.cloneNode(true);
-    clone.querySelectorAll('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-sync-toast, .stella-detail-goods').forEach(node => node.remove());
+    clone.querySelectorAll('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float, #stella-sync-toast, .stella-detail-goods').forEach(node => node.remove());
     return clone.innerText || '';
   }
 
@@ -792,7 +796,7 @@
 
     for (const el of elements) {
       if (!visible(el)) continue;
-      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-sync-toast, .stella-detail-goods')) continue;
+      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float, #stella-sync-toast, .stella-detail-goods')) continue;
 
       const text = el.innerText?.trim();
       if (!text || text.length > 900) continue;
@@ -879,7 +883,7 @@
 
     for (const el of elements) {
       if (!visible(el)) continue;
-      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-sync-toast, .stella-detail-goods')) continue;
+      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float, #stella-sync-toast, .stella-detail-goods')) continue;
 
       const text = el.innerText?.trim();
       if (!text || text.length > 1200) continue;
@@ -2279,7 +2283,7 @@
 
   function findNativeButtonBar() {
     const containers = [...document.querySelectorAll('nav, header, div')]
-      .filter(el => visible(el) && !el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback'))
+      .filter(el => visible(el) && !el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float'))
       .map(el => {
         const rect = el.getBoundingClientRect();
         const buttons = [...el.querySelectorAll('button, a, [role="button"]')].filter(visible);
@@ -2346,6 +2350,49 @@
       ensureLauncherButton();
       updateLauncherButton();
     }, 120);
+  }
+
+  function quickScanFloatHtml() {
+    return `
+      <span class="stella-quick-scan-main">${escapeHtml(t('quickScan'))}</span>
+      <span class="stella-quick-scan-sub">${escapeHtml(t('quickScanSub'))}</span>
+    `;
+  }
+
+  function ensureQuickScanFloat() {
+    let btn = document.getElementById('stella-quick-scan-float');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'stella-quick-scan-float';
+      btn.type = 'button';
+      btn.dataset.stellaAction = 'quick-scan-upload';
+      btn.setAttribute('aria-label', t('quickScan'));
+      document.body.appendChild(btn);
+    }
+
+    btn.innerHTML = quickScanFloatHtml();
+  }
+
+  function scheduleQuickScanFloatUpdate() {
+    clearTimeout(quickScanFloatTimer);
+    quickScanFloatTimer = setTimeout(() => {
+      ensureQuickScanFloat();
+    }, 120);
+  }
+
+  function runQuickScanUpload() {
+    const scanned = scrapeCurrentVisibleData({ upload: true, silent: false });
+    if (scanned) {
+      showSyncToast(t('quickScanOkTitle'), t('quickScanOkMessage'));
+      scheduleInject();
+      schedulePanelRender();
+      scheduleLauncherUpdate();
+      scheduleQuickScanFloatUpdate();
+      return true;
+    }
+
+    showSyncToast(t('noScanTitle'), t('noScanMessage'));
+    return false;
   }
 
   function markCurrentAsSeen() {
@@ -2574,6 +2621,13 @@
       return;
     }
 
+    if (action === 'quick-scan-upload') {
+      event.preventDefault();
+      event.stopPropagation();
+      runQuickScanUpload();
+      return;
+    }
+
     if (!actionEl.closest('#stella-trade-modal-backdrop')) return;
 
     event.preventDefault();
@@ -2660,13 +2714,13 @@
   function isReturnClickTarget(target) {
     if (!target || !target.closest) return false;
     const el = target.closest('button, a, div, span');
-    if (!el || el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback')) return false;
+    if (!el || el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float')) return false;
     const text = String(el.innerText || el.textContent || '').trim();
     return text.includes('返航') || text.includes('返回') || text.includes('離港') || text.includes('离港') || text.includes('出發') || text.includes('出发') || /Return|Back|Leave|Depart|Set Sail/i.test(text);
   }
 
   function handleInteraction(event) {
-    if (event.target.closest?.('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback')) return;
+    if (event.target.closest?.('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float')) return;
     const now = Date.now();
 
     if (isReturnClickTarget(event.target)) {
@@ -2795,6 +2849,55 @@
       .stella-launcher-alert {
         color: #fff !important;
         background: #ff4d5e !important;
+      }
+
+      #stella-quick-scan-float {
+        position: fixed !important;
+        right: 18px !important;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 22px) !important;
+        z-index: 2147483001 !important;
+        display: inline-flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 2px !important;
+        min-width: 92px !important;
+        min-height: 48px !important;
+        padding: 7px 12px !important;
+        border: 1px solid rgba(255, 226, 140, 0.78) !important;
+        border-radius: 999px !important;
+        background: linear-gradient(180deg, #f5b84b, #b96d16) !important;
+        color: #fff9e8 !important;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.28) !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+        font-family: inherit !important;
+      }
+
+      #stella-quick-scan-float:hover {
+        filter: brightness(1.08) !important;
+      }
+
+      #stella-quick-scan-float:active {
+        transform: translateY(1px) scale(0.98) !important;
+      }
+
+      .stella-quick-scan-main {
+        font-size: 14px !important;
+        font-weight: 950 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.28) !important;
+      }
+
+      .stella-quick-scan-sub {
+        font-size: 10px !important;
+        font-weight: 850 !important;
+        line-height: 1.1 !important;
+        white-space: nowrap !important;
+        opacity: 0.9 !important;
       }
 
       html.stella-trade-panel-open,
@@ -3707,6 +3810,28 @@
           box-sizing: border-box !important;
         }
 
+        #stella-quick-scan-float {
+          right: 14px !important;
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+          min-width: 72px !important;
+          width: 72px !important;
+          min-height: 58px !important;
+          padding: 6px 8px !important;
+          border-radius: 18px !important;
+          z-index: 2147483001 !important;
+        }
+
+        .stella-quick-scan-main {
+          font-size: 13px !important;
+          line-height: 1.05 !important;
+          white-space: normal !important;
+        }
+
+        .stella-quick-scan-sub {
+          font-size: 9px !important;
+          white-space: normal !important;
+        }
+
         #stella-sync-toast {
           top: 12px !important;
           left: 12px !important;
@@ -3734,18 +3859,22 @@
     setupObserver();
     setupListeners();
     ensureLauncherButton();
+    ensureQuickScanFloat();
     scheduleInject();
     scheduleLauncherUpdate();
+    scheduleQuickScanFloatUpdate();
 
     setTimeout(() => {
       scrapeCurrentVisibleData({ upload: false, silent: true });
       fetchCloudData({ silent: true });
       scheduleInject();
       scheduleLauncherUpdate();
+      scheduleQuickScanFloatUpdate();
     }, 1000);
 
     setInterval(() => {
       ensureLauncherButton();
+      ensureQuickScanFloat();
       if (Date.now() - lastCloudPullAt >= CLOUD_PULL_INTERVAL) fetchCloudData({ silent: true });
     }, CLOUD_PULL_INTERVAL);
 
