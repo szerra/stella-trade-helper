@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.52
-// @description  修正手機面板左右上下滑動彈回；舊資料提示與未售罄補貨推估顯示；保留中英文掃描支援。
+// @version      1.6.53
+// @description  修正手機面板左右上下滑動彈回。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -21,7 +21,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.52] 腳本已載入：CN cloud + manual floating scan');
+  console.log('[StellaTrade 1.6.53] 腳本已載入：CN cloud + manual scan stacked below launcher');
 
   const DEFAULT_API_URL = 'http://43.138.169.50:3000'; // 默認連線雲伺服器，不再依賴 Google/VPN
 
@@ -2853,8 +2853,10 @@
 
       #stella-quick-scan-float {
         position: fixed !important;
-        right: 18px !important;
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 22px) !important;
+        left: 325px !important;
+        top: 54px !important;
+        right: auto !important;
+        bottom: auto !important;
         z-index: 2147483001 !important;
         display: inline-flex !important;
         flex-direction: column !important;
@@ -3751,7 +3753,7 @@
           top: auto !important;
           left: 16px !important;
           right: auto !important;
-          bottom: calc(env(safe-area-inset-bottom, 0px) + 2px) !important;
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important;
           width: 58px !important;
           height: 58px !important;
           min-width: 58px !important;
@@ -3811,8 +3813,10 @@
         }
 
         #stella-quick-scan-float {
-          right: 14px !important;
-          bottom: calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+          left: 16px !important;
+          right: auto !important;
+          top: auto !important;
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
           min-width: 72px !important;
           width: 72px !important;
           min-height: 58px !important;
