@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         閒著上鉤-雲端同步跑商情報站
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.50
-// @description  修正手機港口捲動、舊資料提示與未售罄補貨推估顯示；保留中英文掃描支援。
+// @version      1.6.51
+// @description  修正手機面板左右上下滑動彈回；保留大陸雲伺服器連線與中英文掃描支援。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
@@ -14,17 +14,23 @@
 // @grant        GM.xmlHttpRequest
 // @connect      script.google.com
 // @connect      script.googleusercontent.com
+// @connect      *
 // @run-at       document-end
 // ==/UserScript==
 
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.50] 腳本已載入：mobile restock estimate fix');
+  console.log('[StellaTrade 1.6.51] 腳本已載入：mobile scroll rebound fix');
 
-  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec';
+  const DEFAULT_API_URL = 'http://43.138.169.50:3000'; // 默認連線雲伺服器，不再依賴 Google/VPN
 
+  const CUSTOM_API_URL_KEY = 'stella_custom_api_url';
   function getApiUrl() {
+    try {
+      const custom = localStorage.getItem(CUSTOM_API_URL_KEY);
+      if (custom && custom.startsWith('http')) return custom;
+    } catch (e) {}
     return DEFAULT_API_URL;
   }
 
@@ -2104,6 +2110,7 @@
           <div>
             <div class="stella-setting-title">${escapeHtml(t('cloudDiag'))}</div>
             <div class="stella-setting-sub">${escapeHtml(t('url'))}：${escapeHtml(getApiUrl())}</div>
+            <div class="stella-setting-sub" style="color:#86efac;font-size:12px;">💡 分享版：默認連線雲伺服器。如需切換回 Google（需 VPN），在 Console 執行 localStorage.setItem('stella_custom_api_url','https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec') 後重新整理。</div>
             <div class="stella-setting-sub">${escapeHtml(t('status'))}：${syncState.ok === true ? escapeHtml(t('normal')) : syncState.ok === false ? escapeHtml(t('failed')) : escapeHtml(t('checking'))}</div>
             <div class="stella-setting-sub">${escapeHtml(t('lastSuccess'))}：${syncState.lastSuccessAt ? escapeHtml(new Date(syncState.lastSuccessAt).toLocaleString()) : '-'}</div>
             <div class="stella-setting-sub">${escapeHtml(t('lastFailure'))}：${syncState.lastFailureAt ? escapeHtml(new Date(syncState.lastFailureAt).toLocaleString()) : '-'}</div>
@@ -2121,13 +2128,60 @@
     `;
   }
 
+  function readPanelScrollSnapshot() {
+    const root = document.getElementById('stella-trade-modal-backdrop');
+    if (!root) return null;
+
+    const body = root.querySelector('.stella-panel-body');
+    const tabs = root.querySelector('.stella-tabs');
+    const portNav = root.querySelector('.stella-port-nav');
+    const activeTab = root.querySelector('.stella-tab.active');
+    const activePort = root.querySelector('.stella-port-nav-btn.active');
+
+    return {
+      selectedTab: activeTab?.dataset?.tab || '',
+      selectedPort: activePort?.dataset?.port || '',
+      bodyTop: body ? body.scrollTop : 0,
+      bodyLeft: body ? body.scrollLeft : 0,
+      tabsLeft: tabs ? tabs.scrollLeft : 0,
+      portNavLeft: portNav ? portNav.scrollLeft : 0
+    };
+  }
+
+  function restorePanelScrollSnapshot(snapshot) {
+    if (!snapshot) return false;
+
+    const root = document.getElementById('stella-trade-modal-backdrop');
+    if (!root) return false;
+
+    const body = root.querySelector('.stella-panel-body');
+    const tabs = root.querySelector('.stella-tabs');
+    const portNav = root.querySelector('.stella-port-nav');
+
+    if (body) {
+      body.scrollTop = snapshot.bodyTop || 0;
+      body.scrollLeft = snapshot.bodyLeft || 0;
+    }
+    if (tabs) tabs.scrollLeft = snapshot.tabsLeft || 0;
+    if (portNav) portNav.scrollLeft = snapshot.portNavLeft || 0;
+
+    return true;
+  }
+
+  function setPanelScrollLock(enabled) {
+    document.documentElement?.classList.toggle('stella-trade-panel-open', !!enabled);
+    document.body?.classList.toggle('stella-trade-panel-open', !!enabled);
+  }
+
   function renderPanel() {
     const state = readPanelState();
+    setPanelScrollLock(!!state.isOpen);
     if (!state.isOpen) {
       document.getElementById('stella-trade-modal-backdrop')?.remove();
       return;
     }
 
+    const scrollSnapshot = readPanelScrollSnapshot();
     const settings = readSettings();
     const { current, seen } = currentAndSeen();
     const changes = compareMarketData(current, seen);
@@ -2176,9 +2230,13 @@
     `;
 
     const old = document.getElementById('stella-trade-modal-backdrop');
+    const shouldRestoreScroll = scrollSnapshot && scrollSnapshot.selectedTab === selectedTab;
     if (old) old.outerHTML = panelHtml;
     else document.body.insertAdjacentHTML('beforeend', panelHtml);
-    requestAnimationFrame(scrollActivePortNavIntoView);
+    requestAnimationFrame(() => {
+      if (shouldRestoreScroll) restorePanelScrollSnapshot(scrollSnapshot);
+      else scrollActivePortNavIntoView();
+    });
   }
 
   function scrollActivePortNavIntoView() {
@@ -2739,6 +2797,12 @@
         background: #ff4d5e !important;
       }
 
+      html.stella-trade-panel-open,
+      body.stella-trade-panel-open {
+        overflow: hidden !important;
+        overscroll-behavior: none !important;
+      }
+
       #stella-trade-modal-backdrop {
         position: fixed !important;
         inset: 0 !important;
@@ -2749,6 +2813,7 @@
         justify-content: center !important;
         padding: 22px !important;
         box-sizing: border-box !important;
+        overscroll-behavior: none !important;
       }
 
       #stella-trade-panel {
@@ -2891,6 +2956,8 @@
         overflow: auto !important;
         min-height: 0 !important;
         flex: 1 1 auto !important;
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch !important;
       }
 
       .stella-panel-toolbar {
@@ -3407,13 +3474,23 @@
           align-items: flex-start !important;
           padding: 12px !important;
           padding-bottom: 80px !important;
+          overflow: hidden !important;
+          overscroll-behavior: none !important;
         }
 
         #stella-trade-panel {
           width: calc(100vw - 24px) !important;
-          height: calc(100vh - 96px) !important;
-          max-height: calc(100vh - 96px) !important;
-          min-height: 520px !important;
+          height: calc(100dvh - 96px) !important;
+          max-height: calc(100dvh - 96px) !important;
+          min-height: 0 !important;
+          overscroll-behavior: contain !important;
+        }
+
+        @supports not (height: 100dvh) {
+          #stella-trade-panel {
+            height: calc(100vh - 96px) !important;
+            max-height: calc(100vh - 96px) !important;
+          }
         }
 
         .stella-panel-header,
@@ -3434,6 +3511,10 @@
 
         .stella-tabs {
           overflow-x: auto !important;
+          overscroll-behavior-x: contain !important;
+          -webkit-overflow-scrolling: touch !important;
+          scroll-snap-type: none !important;
+          touch-action: pan-x !important;
         }
 
         .stella-tab {
@@ -3450,6 +3531,10 @@
           overflow-x: auto !important;
           overflow-y: visible !important;
           align-items: flex-end !important;
+          overscroll-behavior-x: contain !important;
+          -webkit-overflow-scrolling: touch !important;
+          scroll-snap-type: none !important;
+          touch-action: pan-x !important;
         }
 
         .stella-tabs::-webkit-scrollbar,
@@ -3473,6 +3558,10 @@
           align-items: center !important;
           scroll-padding-inline: 18px !important;
           scrollbar-width: none !important;
+          overscroll-behavior-x: contain !important;
+          -webkit-overflow-scrolling: touch !important;
+          scroll-snap-type: none !important;
+          touch-action: pan-x !important;
         }
 
         .stella-port-nav-btn {
@@ -3511,7 +3600,9 @@
 
         .stella-panel-body {
           overflow-x: hidden !important;
+          overscroll-behavior: contain !important;
           -webkit-overflow-scrolling: touch !important;
+          touch-action: pan-y !important;
         }
 
         .stella-setting-row {
