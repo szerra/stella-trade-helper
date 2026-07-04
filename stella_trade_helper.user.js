@@ -1,12 +1,10 @@
 // ==UserScript==
-// @name         閒著上鉤-雲端同步跑商情報站
+// @name         閒著上鉤-雲端同步跑商情報站（無VPN版）
 // @namespace    https://github.com/szerra/stella-trade-helper
-// @version      1.6.53
-// @description  修正手機面板左右上下滑動彈回。
+// @version      1.6.57-CN
+// @description  修正共用商品跨港同步，下載雲端資料以港區錨點判定。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
-// @updateURL    https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
-// @downloadURL  https://raw.githubusercontent.com/szerra/stella-trade-helper/main/stella_trade_helper.user.js
 // @match        *://fishingidle.com/*
 // @match        *://www.fishingidle.com/*
 // @match        *://*.fishingidle.com/*
@@ -21,7 +19,7 @@
 (() => {
   'use strict';
 
-  console.log('[StellaTrade 1.6.53] 腳本已載入：CN cloud + manual scan stacked below launcher');
+  console.log('[StellaTrade 1.6.57-CN] 腳本已載入：CN shared-item port guard fix');
 
   const DEFAULT_API_URL = 'http://43.138.169.50:3000'; // 默認連線雲伺服器，不再依賴 Google/VPN
 
@@ -65,7 +63,7 @@
 
   const DEFAULT_PANEL_STATE = {
     selectedTab: 'changes',
-    selectedPort: '鯨歌港',
+    selectedPort: '鲸歌港',
     isOpen: false,
     sortMode: 'lowStock',
   };
@@ -97,42 +95,37 @@
   };
 
   const portNormalize = {
-    '雾灯群岛': '霧燈群島',
-    '霧燈群島': '霧燈群島',
-    'Mist Lantern Isles': '霧燈群島',
-    'mist_lantern_isles': '霧燈群島',
-    '星沉湾': '星沉灣',
-    '星沉灣': '星沉灣',
-    'Starfall Bay': '星沉灣',
-    'starfall_bay': '星沉灣',
+    '雾灯群岛': '雾灯群岛',
+    'Mist Lantern Isles': '雾灯群岛',
+    'mist_lantern_isles': '雾灯群岛',
+    '星沉湾': '星沉湾',
+    'Starfall Bay': '星沉湾',
+    'starfall_bay': '星沉湾',
     '夜帆市': '夜帆市',
     'Night Sail City': '夜帆市',
     'night_sail_city': '夜帆市',
-    '鲸歌港': '鯨歌港',
-    '鯨歌港': '鯨歌港',
-    'Whalesong Harbor': '鯨歌港',
-    'Whale Song Harbor': '鯨歌港',
-    'whale_song_harbor': '鯨歌港',
-    '潮镜礁': '潮鏡礁',
-    '潮境礁': '潮鏡礁',
-    '潮鏡礁': '潮鏡礁',
-    'Tideglass Reef': '潮鏡礁',
-    'tideglass_reef': '潮鏡礁',
+    '鲸歌港': '鲸歌港',
+    'Whalesong Harbor': '鲸歌港',
+    'Whale Song Harbor': '鲸歌港',
+    'whale_song_harbor': '鲸歌港',
+    '潮镜礁': '潮镜礁',
+    '潮境礁': '潮镜礁',
+    'Tideglass Reef': '潮镜礁',
+    'tideglass_reef': '潮镜礁',
     '珊文港': '珊文港',
     'Coral Script Port': '珊文港',
     'coral_script_port': '珊文港'
   };
 
   const itemNormalize = {
-    '雾灯芯': '霧燈芯',
-    '霧燈芯': '霧燈芯',
-    'Mist Lantern Wick': '霧燈芯',
-    'souvenir_mist_lantern_wick': '霧燈芯',
+    '雾灯芯': '雾灯芯',
+    'Mist Lantern Wick': '雾灯芯',
+    'souvenir_mist_lantern_wick': '雾灯芯',
 
-    '航雾铜牌': '航霧銅牌',
-    '航霧銅牌': '航霧銅牌',
-    'Fogbound Copper Tag': '航霧銅牌',
-    'souvenir_fogbound_copper_tag': '航霧銅牌',
+    '雾铜牌': '雾铜牌',
+    '航雾铜牌': '雾铜牌',
+    'Fogbound Copper Tag': '雾铜牌',
+    'souvenir_fogbound_copper_tag': '雾铜牌',
 
     '星沙瓶': '星砂瓶',
     '星砂瓶': '星砂瓶',
@@ -143,15 +136,14 @@
     'Siren Coffee': '海妖咖啡',
     'coffee_siren': '海妖咖啡',
 
-    '浮梦拿铁': '浮夢拿鐵',
-    '浮夢拿鐵': '浮夢拿鐵',
-    'Dream Latte': '浮夢拿鐵',
-    'coffee_dream_latte': '浮夢拿鐵',
+    '浮梦拿铁': '浮梦拿铁',
+    'Dream Latte': '浮梦拿铁',
+    'coffee_dream_latte': '浮梦拿铁',
 
-    '礁糖玛奇朵': '礁糖瑪奇朵',
-    '礁糖瑪奇朵': '礁糖瑪奇朵',
-    'Reef Sugar Macchiato': '礁糖瑪奇朵',
-    'coffee_reef_sugar_macchiato': '礁糖瑪奇朵',
+    '焦糖玛奇朵': '焦糖玛奇朵',
+    '礁糖玛奇朵': '焦糖玛奇朵',
+    'Reef Sugar Macchiato': '焦糖玛奇朵',
+    'coffee_reef_sugar_macchiato': '焦糖玛奇朵',
 
     '小急救包': '小急救包',
     '一次性醫療物品': '小急救包',
@@ -161,13 +153,12 @@
     'med_small_kit': '小急救包',
 
     '夜帆布': '夜帆布',
-    '夜帆绸': '夜帆綢',
-    '夜帆綢': '夜帆綢',
-    '夜帆絹': '夜帆綢',
-    '夜帆绳': '夜帆綢',
-    '夜帆繩': '夜帆綢',
-    'Night Sail Silk': '夜帆綢',
-    'souvenir_night_sail_silk': '夜帆綢',
+    '夜帆绸': '夜帆布',
+    '夜帆絹': '夜帆布',
+    '夜帆绳': '夜帆布',
+    '夜帆繩': '夜帆布',
+    'Night Sail Silk': '夜帆布',
+    'souvenir_night_sail_silk': '夜帆布',
 
     '小米酒': '米酒',
     '米酒': '米酒',
@@ -183,21 +174,18 @@
     'Medium Medical Kit': '中急救包',
     'med_medium_kit': '中急救包',
 
-    '鲸歌骨笛': '鯨歌骨笛',
-    '鯨歌骨笛': '鯨歌骨笛',
-    'Whalesong Bone Flute': '鯨歌骨笛',
-    'Whale Bone Flute': '鯨歌骨笛',
-    'souvenir_whale_bone_flute': '鯨歌骨笛',
+    '鲸歌骨笛': '鲸歌骨笛',
+    'Whalesong Bone Flute': '鲸歌骨笛',
+    'Whale Bone Flute': '鲸歌骨笛',
+    'souvenir_whale_bone_flute': '鲸歌骨笛',
 
-    '安神贝露': '安神貝露',
-    '安神貝露': '安神貝露',
-    'Soothing Shell Dew': '安神貝露',
-    'coffee_soothing_shell_dew': '安神貝露',
+    '安神贝露': '安神贝露',
+    'Soothing Shell Dew': '安神贝露',
+    'coffee_soothing_shell_dew': '安神贝露',
 
-    '潮镜贝': '潮鏡貝',
-    '潮鏡貝': '潮鏡貝',
-    'Tideglass Shell': '潮鏡貝',
-    'souvenir_tideglass_shell': '潮鏡貝',
+    '潮镜贝': '潮镜贝',
+    'Tideglass Shell': '潮镜贝',
+    'souvenir_tideglass_shell': '潮镜贝',
 
     '黑潮摩卡': '黑潮摩卡',
     'Black Tide Mocha': '黑潮摩卡',
@@ -207,37 +195,90 @@
     'Phantom Tide Cold Brew': '幻潮冷萃',
     'coffee_phantom_tide_cold_brew': '幻潮冷萃',
 
-    '珊文签': '珊文簽',
-    '珊文籤': '珊文簽',
-    '珊文簽': '珊文簽',
-    'Coral Script Bookmark': '珊文簽',
-    'souvenir_coral_script_bookmark': '珊文簽'
+    '珊文签': '珊文签',
+    '珊文籤': '珊文签',
+    'Coral Script Bookmark': '珊文签',
+    'souvenir_coral_script_bookmark': '珊文签'
   };
 
   const ports = [
-    { port: '星沉灣', keywords: ['星沉', '星沉灣', '星沉湾', 'Starfall', 'Starfall Bay', 'starfall_bay'], items: ['星砂瓶', '浮夢拿鐵', '海妖咖啡', '礁糖瑪奇朵', '小急救包'] },
-    { port: '夜帆市', keywords: ['夜帆', 'Night Sail', 'Night Sail City', 'night_sail_city'], items: ['夜帆綢', '黑潮摩卡', '安神貝露', '烈酒', '米酒', '中急救包'] },
-    { port: '鯨歌港', keywords: ['鯨歌', '鲸歌', 'Whalesong', 'Whalesong Harbor', 'Whale Song Harbor', 'whale_song_harbor'], items: ['鯨歌骨笛', '安神貝露', '海妖咖啡'] },
-    { port: '潮鏡礁', keywords: ['潮鏡', '潮镜', '潮境', 'Tideglass', 'Tideglass Reef', 'tideglass_reef'], items: ['潮鏡貝', '礁糖瑪奇朵', '黑潮摩卡'] },
-    { port: '霧燈群島', keywords: ['霧燈', '雾灯', '擺燈', '摆灯', 'Mist Lantern', 'Mist Lantern Isles', 'mist_lantern_isles'], items: ['航霧銅牌', '霧燈芯', '幻潮冷萃', '浮夢拿鐵', '黑潮摩卡'] },
-    { port: '珊文港', keywords: ['珊文', 'Coral Script', 'Coral Script Port', 'coral_script_port'], items: ['珊文簽', '幻潮冷萃', '浮夢拿鐵'] },
+    { port: '星沉湾', keywords: ['星沉湾', 'Starfall Bay', '星沉', 'Starfall', 'starfall_bay'], items: ['星砂瓶', '海妖咖啡', '浮梦拿铁', '焦糖玛奇朵'] },
+    { port: '夜帆市', keywords: ['夜帆市', '夜帆', 'Night Sail City', 'Night Sail', 'night_sail_city'], items: ['夜帆布', '安神贝露', '黑潮摩卡'] },
+    { port: '鲸歌港', keywords: ['鲸歌港', '鲸歌', 'Whalesong Harbor', 'Whale Song Harbor', 'Whalesong', 'whale_song_harbor'], items: ['鲸歌骨笛', '海妖咖啡', '安神贝露'] },
+    { port: '潮镜礁', keywords: ['潮镜礁', '潮境礁', '潮镜', '潮境', 'Tideglass Reef', 'Tideglass', 'tideglass_reef'], items: ['潮镜贝', '焦糖玛奇朵', '黑潮摩卡'] },
+    { port: '雾灯群岛', keywords: ['雾灯群岛', '雾灯', '摆灯', 'Mist Lantern Isles', 'Mist Lantern', 'mist_lantern_isles'], items: ['雾灯芯', '雾铜牌', '浮梦拿铁', '黑潮摩卡', '幻潮冷萃'] },
+    { port: '珊文港', keywords: ['珊文港', '珊文', 'Coral Script Port', 'Coral Script', 'coral_script_port'], items: ['珊文签', '浮梦拿铁', '幻潮冷萃'] },
   ];
+
+
+  const ITEM_PORT_INDEX = (() => {
+    const map = new Map();
+    for (const def of ports) {
+      for (const item of def.items) {
+        const clean = normItem(item);
+        if (!map.has(clean)) map.set(clean, new Set());
+        map.get(clean).add(def.port);
+      }
+    }
+    return map;
+  })();
+
+  function portsForTradeItem(itemName) {
+    return ITEM_PORT_INDEX.get(normItem(itemName)) || new Set();
+  }
+
+  function isSharedTradeItem(itemName) {
+    return portsForTradeItem(itemName).size > 1;
+  }
+
+  function isUniqueTradeItemForPort(portName, itemName) {
+    const portsForItem = portsForTradeItem(itemName);
+    return portsForItem.size === 1 && portsForItem.has(normPort(portName));
+  }
+
+  function hasObservedCloudInfo(info) {
+    if (!info || typeof info !== 'object') return false;
+    const count = num(info.count ?? info.quantity ?? info.stock ?? info.amount);
+    if (count === null) return false;
+    const timeText = String(info.time || '').trim();
+    const hasTime = !!timeText && timeText !== '-' && timeText !== '尚未更新' && timeText !== '未知';
+    return !!(
+      hasTime ||
+      info.clientObservedAt ||
+      info.syncVersion ||
+      info.source ||
+      info.observationSource ||
+      info.lastRestockAt ||
+      info.estimatedRestockAt
+    );
+  }
+
+  function cloudPortHasUniqueAnchor(portName, items) {
+    if (!items || typeof items !== 'object') return false;
+    for (const [rawItem, info] of Object.entries(items)) {
+      const cleanItem = normItem(rawItem);
+      if (!isAllowedItemForPort(portName, cleanItem)) continue;
+      if (!isUniqueTradeItemForPort(portName, cleanItem)) continue;
+      if (hasObservedCloudInfo(info)) return true;
+    }
+    return false;
+  }
 
   const PORT_DISPLAY_NAMES = {
     zh: {
-      '星沉灣': '星沉灣',
+      '星沉湾': '星沉湾',
       '夜帆市': '夜帆市',
-      '鯨歌港': '鯨歌港',
-      '潮鏡礁': '潮鏡礁',
-      '霧燈群島': '霧燈群島',
+      '鲸歌港': '鲸歌港',
+      '潮镜礁': '潮镜礁',
+      '雾灯群岛': '雾灯群岛',
       '珊文港': '珊文港'
     },
     en: {
-      '星沉灣': 'Starfall Bay',
+      '星沉湾': 'Starfall Bay',
       '夜帆市': 'Night Sail City',
-      '鯨歌港': 'Whalesong Harbor',
-      '潮鏡礁': 'Tideglass Reef',
-      '霧燈群島': 'Mist Lantern Isles',
+      '鲸歌港': 'Whalesong Harbor',
+      '潮镜礁': 'Tideglass Reef',
+      '雾灯群岛': 'Mist Lantern Isles',
       '珊文港': 'Coral Script Port'
     }
   };
@@ -245,41 +286,33 @@
   const ITEM_DISPLAY_NAMES = {
     zh: {
       '星砂瓶': '星砂瓶',
-      '浮夢拿鐵': '浮夢拿鐵',
+      '浮梦拿铁': '浮梦拿铁',
       '海妖咖啡': '海妖咖啡',
-      '礁糖瑪奇朵': '礁糖瑪奇朵',
-      '小急救包': '小急救包',
-      '夜帆綢': '夜帆綢',
+      '焦糖玛奇朵': '焦糖玛奇朵',
+      '夜帆布': '夜帆布',
       '黑潮摩卡': '黑潮摩卡',
-      '安神貝露': '安神貝露',
-      '烈酒': '烈酒',
-      '米酒': '米酒',
-      '中急救包': '中急救包',
-      '鯨歌骨笛': '鯨歌骨笛',
-      '潮鏡貝': '潮鏡貝',
-      '航霧銅牌': '航霧銅牌',
-      '霧燈芯': '霧燈芯',
+      '安神贝露': '安神贝露',
+      '鲸歌骨笛': '鲸歌骨笛',
+      '潮镜贝': '潮镜贝',
+      '雾铜牌': '雾铜牌',
+      '雾灯芯': '雾灯芯',
       '幻潮冷萃': '幻潮冷萃',
-      '珊文簽': '珊文簽'
+      '珊文签': '珊文签'
     },
     en: {
       '星砂瓶': 'Star Sand Bottle',
-      '浮夢拿鐵': 'Dream Latte',
+      '浮梦拿铁': 'Dream Latte',
       '海妖咖啡': 'Siren Coffee',
-      '礁糖瑪奇朵': 'Reef Sugar Macchiato',
-      '小急救包': 'Small First Aid Kit',
-      '夜帆綢': 'Night Sail Silk',
+      '焦糖玛奇朵': 'Reef Sugar Macchiato',
+      '夜帆布': 'Night Sail Silk',
       '黑潮摩卡': 'Black Tide Mocha',
-      '安神貝露': 'Soothing Shell Dew',
-      '烈酒': 'Strong Liquor',
-      '米酒': 'Rice Wine',
-      '中急救包': 'Medium First Aid Kit',
-      '鯨歌骨笛': 'Whalesong Bone Flute',
-      '潮鏡貝': 'Tideglass Shell',
-      '航霧銅牌': 'Fogbound Copper Tag',
-      '霧燈芯': 'Mist Lantern Wick',
+      '安神贝露': 'Soothing Shell Dew',
+      '鲸歌骨笛': 'Whalesong Bone Flute',
+      '潮镜贝': 'Tideglass Shell',
+      '雾铜牌': 'Fogbound Copper Tag',
+      '雾灯芯': 'Mist Lantern Wick',
       '幻潮冷萃': 'Phantom Tide Cold Brew',
-      '珊文簽': 'Coral Script Bookmark'
+      '珊文签': 'Coral Script Bookmark'
     }
   };
 
@@ -292,8 +325,8 @@
       sort: '排序', sortLowStock: '低庫存', sortTime: '更新時間', sortPrice: '價格', sortName: '商品名稱', goodsEmpty: '目前沒有商品資料',
       update: '更新', restock: '補貨', estimatedRestock: '推估補貨', restockBasisSkill: '　補貨基準：技能掃描', added: '新增', disappeared: '消失', changed: '變更',
       settingsLanguage: '語言', settingsLanguageSub: 'Auto 會優先依遊戲畫面判斷，再看瀏覽器語言。', langAuto: 'Auto', langZh: '中文', langEn: 'English',
-      quickScan: '手动扫描', quickScanSub: '返航前点一下', quickScanOkTitle: '✅ 手动扫描已送出', quickScanOkMessage: '已读取目前画面的港口商品，并送出云端上传。',
-      showToast: '顯示同步失敗提示', showToastSub: '失敗時右上角跳出提醒。', showBadge: '顯示變化角標', showBadgeSub: '上方跑商情報按鈕顯示變化數字。', showTravel: '顯示航程預估', showTravelSub: '在港口下方簡化資訊中顯示預計到達與返航。', defaultPage: '開啟面板預設頁', defaultPageSub: '下次打開情報面板時優先顯示。', lowStockRatio: '低庫存比例', lowStockRatioSub: '低於比例時，港口與商品會被標記。', cloudDiag: '雲端診斷', url: '網址', status: '狀態', normal: '正常', failed: '失敗', checking: '確認中', lastSuccess: '最後成功', lastFailure: '最後失敗', error: '錯誤', resetChanges: '重置變化紀錄', scanCurrent: '掃描目前畫面', syncNow: '立即同步雲端', pingCloud: '測試雲端連線',
+      quickScan: '手动扫描', quickScanSub: '返航前点一下', quickScanOkTitle: '✅ 手动扫描已送出', quickScanOkMessage: '已读取目前画面的港口商品，并送出云端上传。', cloudPullOkTitle: '✅ 云端资料已下载', cloudPullOkMessage: '已套用 {ports} 个港区、{items} 笔商品资料。', cloudPullEmptyTitle: '⚠️ 云端资料为空', cloudPullEmptyMessage: '服务器有回应，但没有可套用的港口商品资料。可能尚未有人上传，或商品不在此版本清单内。',
+      showToast: '顯示同步失敗提示', showToastSub: '失敗時右上角跳出提醒。', showBadge: '顯示變化角標', showBadgeSub: '上方跑商情報按鈕顯示變化數字。', showTravel: '顯示航程預估', showTravelSub: '在港口下方簡化資訊中顯示預計到達與返航。', defaultPage: '開啟面板預設頁', defaultPageSub: '下次打開情報面板時優先顯示。', lowStockRatio: '低庫存比例', lowStockRatioSub: '低於比例時，港口與商品會被標記。', cloudDiag: '雲端診斷', url: '網址', status: '狀態', normal: '正常', failed: '失敗', checking: '確認中', lastSuccess: '最後成功', lastFailure: '最後失敗', error: '錯誤', resetChanges: '重置變化紀錄', scanCurrent: '掃描目前畫面', syncNow: '下载云端资料', pingCloud: '測試雲端連線',
       panelTitle: '🚢 跑商情報站', panelSubtitle: '港口庫存・價格・變化追蹤', close: '關閉', hasChanges: '有 {n} 項變化', noNewChanges: '沒有新的變化', tabChanges: '變化', tabOverview: '概覽', tabPorts: '港口', tabSettings: '設定', launcher: '跑商情報',
       travelTitle: '航程預估', travelDuration: '航行時間', travelArrive: '預計到達', travelReturn: '預計返航', tomorrow: '明天', goodsInfo: '貨物情報', itemsShort: '{n} 項', estimate: '推估', noSyncData: '目前沒有同步資料',
       resetToastTitle: '已重置變化紀錄', resetToastMessage: '目前資料已設為新的比對基準。', noScanTitle: '沒有掃到港口情報', noScanMessage: '目前畫面沒有可讀取的商品卡，請先開啟港口情報或商品頁。', skillScanToastTitle: '✅ 港口情報已掃描', skillScanToastMessage: '{port} 已讀取 {n} 項商品', cloudNewerTitle: '☁️ 雲端資料較新', cloudNewerMessage: '本次 {n} 筆舊資料已略過，不算失敗{sheet}', uploadFailTitle: '⚠️ 上傳雲端失敗', uploadFailMessage: '資料目前只保存在本機。原因：{reason}', syncFailTitle: '⚠️ 雲端同步失敗', syncFailMessage: '原因：{reason}', pingFailTitle: '⚠️ 雲端連線測試失敗', pingOkTitle: '✅ 雲端連線正常', pingOkMessage: 'Web App 回應正常｜{time}'
@@ -306,8 +339,8 @@
       sort: 'Sort', sortLowStock: 'Low stock', sortTime: 'Update time', sortPrice: 'Price', sortName: 'Item name', goodsEmpty: 'No item data yet',
       update: 'Update', restock: 'Restock', estimatedRestock: 'Estimated restock', restockBasisSkill: '  Basis: skill scan', added: 'New', disappeared: 'Gone', changed: 'Changed',
       settingsLanguage: 'Language', settingsLanguageSub: 'Auto checks the game screen first, then browser language.', langAuto: 'Auto', langZh: '中文', langEn: 'English',
-      quickScan: 'Manual Scan', quickScanSub: 'Tap before return', quickScanOkTitle: '✅ Manual scan sent', quickScanOkMessage: 'Current port goods were read and queued for cloud upload.',
-      showToast: 'Show sync failure toast', showToastSub: 'Show a toast in the upper-right when sync fails.', showBadge: 'Show change badge', showBadgeSub: 'Show the number of changes on the Trade Info button.', showTravel: 'Show travel estimate', showTravelSub: 'Show ETA and return time below port cards.', defaultPage: 'Default panel tab', defaultPageSub: 'Preferred tab when opening the panel.', lowStockRatio: 'Low stock threshold', lowStockRatioSub: 'Mark ports and items below this ratio.', cloudDiag: 'Cloud diagnostics', url: 'URL', status: 'Status', normal: 'OK', failed: 'Failed', checking: 'Checking', lastSuccess: 'Last success', lastFailure: 'Last failure', error: 'Error', resetChanges: 'Reset change record', scanCurrent: 'Scan current screen', syncNow: 'Sync now', pingCloud: 'Test cloud connection',
+      quickScan: 'Manual Scan', quickScanSub: 'Tap before return', quickScanOkTitle: '✅ Manual scan sent', quickScanOkMessage: 'Current port goods were read and queued for cloud upload.', cloudPullOkTitle: '✅ Cloud data downloaded', cloudPullOkMessage: 'Applied {ports} ports and {items} item records.', cloudPullEmptyTitle: '⚠️ Cloud data is empty', cloudPullEmptyMessage: 'The server responded, but no supported port item data could be applied.',
+      showToast: 'Show sync failure toast', showToastSub: 'Show a toast in the upper-right when sync fails.', showBadge: 'Show change badge', showBadgeSub: 'Show the number of changes on the Trade Info button.', showTravel: 'Show travel estimate', showTravelSub: 'Show ETA and return time below port cards.', defaultPage: 'Default panel tab', defaultPageSub: 'Preferred tab when opening the panel.', lowStockRatio: 'Low stock threshold', lowStockRatioSub: 'Mark ports and items below this ratio.', cloudDiag: 'Cloud diagnostics', url: 'URL', status: 'Status', normal: 'OK', failed: 'Failed', checking: 'Checking', lastSuccess: 'Last success', lastFailure: 'Last failure', error: 'Error', resetChanges: 'Reset change record', scanCurrent: 'Scan current screen', syncNow: 'Pull Cloud Data', pingCloud: 'Test cloud connection',
       panelTitle: '🚢 Trade Info Station', panelSubtitle: 'Port stock ・ prices ・ change tracking', close: 'Close', hasChanges: '{n} changes', noNewChanges: 'No new changes', tabChanges: 'Changes', tabOverview: 'Overview', tabPorts: 'Ports', tabSettings: 'Settings', launcher: 'Trade Info',
       travelTitle: 'Travel Estimate', travelDuration: 'Travel Time', travelArrive: 'ETA', travelReturn: 'Return ETA', tomorrow: 'Tomorrow', goodsInfo: 'Cargo Info', itemsShort: '{n} items', estimate: 'Estimate', noSyncData: 'No synced data yet',
       resetToastTitle: 'Change record reset', resetToastMessage: 'Current data is now the comparison baseline.', noScanTitle: 'No port info found', noScanMessage: 'No readable item card was found. Open a port info or item page first.', skillScanToastTitle: '✅ Port info scanned', skillScanToastMessage: '{port}: {n} items read', cloudNewerTitle: '☁️ Cloud data is newer', cloudNewerMessage: '{n} older local records were skipped; not an error{sheet}', uploadFailTitle: '⚠️ Cloud upload failed', uploadFailMessage: 'Data is saved locally only. Reason: {reason}', syncFailTitle: '⚠️ Cloud sync failed', syncFailMessage: 'Reason: {reason}', pingFailTitle: '⚠️ Cloud connection test failed', pingOkTitle: '✅ Cloud connection OK', pingOkMessage: 'Web App responded normally｜{time}'
@@ -696,8 +729,109 @@
     return clone.innerText || '';
   }
 
+  function countTextHits(haystack, needle) {
+    const source = String(haystack || '');
+    const target = String(needle || '');
+    if (!source || !target) return 0;
+    let count = 0;
+    let index = 0;
+    while ((index = source.indexOf(target, index)) !== -1) {
+      count++;
+      index += Math.max(1, target.length);
+    }
+    return count;
+  }
+
+  function matchedKnownItemsFromText(text) {
+    const source = String(text || '');
+    const found = new Set();
+    for (const item of allKnownItems()) {
+      const clean = normItem(item);
+      if (!clean || isInvalidItemName(clean)) continue;
+      if (aliasesForItem(clean).some(alias => alias && source.includes(alias))) found.add(clean);
+    }
+    return [...found];
+  }
+
+  function stockCardTextsForPortDetection() {
+    const texts = [];
+    const elements = [...document.querySelectorAll('div, li, tr, section, article, button')];
+    for (const el of elements) {
+      if (!visible(el)) continue;
+      if (el.closest('#stella-trade-modal-backdrop, #stella-trade-launcher, #stella-trade-launcher-fallback, #stella-quick-scan-float, #stella-sync-toast, .stella-detail-goods')) continue;
+
+      const text = el.innerText?.trim();
+      if (!text || text.length > 900) continue;
+
+      const stocks = text.match(/(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi) || [];
+      if (stocks.length !== 1) continue;
+      texts.push(text);
+    }
+    return texts;
+  }
+
+  function itemOwnerCount(itemName) {
+    const clean = normItem(itemName);
+    return ports.filter(def => def.items.includes(clean)).length;
+  }
+
   function detectCurrentPort(text) {
-    return ports.find(def => def.keywords.some(keyword => text.includes(keyword))) || null;
+    const full = String(text || '');
+    const lines = full.split('\n').map(x => x.trim()).filter(Boolean);
+    const stockTexts = stockCardTextsForPortDetection();
+    const scores = ports.map(def => ({
+      def,
+      exactLineScore: 0,
+      keywordScore: 0,
+      uniqueItemScore: 0,
+      sharedItemScore: 0,
+      total: 0
+    }));
+
+    for (const score of scores) {
+      const def = score.def;
+
+      for (const line of lines) {
+        if (normPort(line) === def.port) score.exactLineScore += 8000;
+      }
+
+      for (const keyword of def.keywords) {
+        const hits = countTextHits(full, keyword);
+        if (!hits) continue;
+        score.keywordScore += hits * (keyword === def.port ? 3000 : Math.max(240, keyword.length * 60));
+      }
+
+      for (const cardText of stockTexts) {
+        const matchedItems = matchedKnownItemsFromText(cardText);
+        for (const item of matchedItems) {
+          if (!def.items.includes(item)) continue;
+          const owners = itemOwnerCount(item);
+          if (owners <= 1) score.uniqueItemScore += 1400;
+          else score.sharedItemScore += 80;
+        }
+      }
+
+      score.total = score.exactLineScore + score.keywordScore + score.uniqueItemScore + score.sharedItemScore;
+    }
+
+    scores.sort((a, b) => b.total - a.total);
+    const best = scores[0];
+    const second = scores[1];
+
+    // 没有任何有效讯号时不要硬选第一个港区，避免在其他界面误判成星沉湾。
+    if (!best || best.total <= 0) return null;
+
+    // 港区名称/关键词是最可靠讯号。若同页有多个港区，需搭配商品卡分数拉开差距。
+    if (best.exactLineScore > 0 || best.keywordScore > 0) {
+      if (!second || best.total >= second.total + 250 || best.exactLineScore > second.exactLineScore) return best.def;
+      if (best.uniqueItemScore > second.uniqueItemScore) return best.def;
+      return null;
+    }
+
+    // 没有港区文字时，只接受「唯一商品」造成的明确判定；共用咖啡类商品不拿来决定港区。
+    if (best.uniqueItemScore > 0 && (!second || best.uniqueItemScore >= second.uniqueItemScore + 700)) return best.def;
+
+    return null;
   }
 
   function isTavernPage(text) {
@@ -1154,7 +1288,169 @@
     });
   }
 
-  function fetchCloudData({ silent = true, force = false } = {}) {
+  function extractCloudMarketPayload(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+
+    // 兼容两种伺服器回传：
+    // 1. 直接回传 { 港区: { 商品: info } }
+    // 2. 包成 { status: 'success', data/marketData/records/result: { 港区: { 商品: info } } }
+    const wrapperKeys = ['data', 'marketData', 'records', 'result', 'payload'];
+    if (raw.status === 'success') {
+      for (const key of wrapperKeys) {
+        if (raw[key] && typeof raw[key] === 'object') return raw[key];
+      }
+    }
+
+    for (const key of wrapperKeys) {
+      if (raw[key] && typeof raw[key] === 'object') {
+        const maybe = raw[key];
+        const hasPortLikeKey = Object.keys(maybe).some(name => !!getPortDefByName(normPort(name)));
+        if (hasPortLikeKey) return maybe;
+      }
+    }
+
+    return raw;
+  }
+
+  function applyCloudMarketDataToLocal(cloudData, { preferCloud = false } = {}) {
+    const localData = preferCloud ? defaultData() : ensureData();
+    const stats = {
+      applied: 0,
+      filtered: 0,
+      ports: new Set(),
+      firstPort: ''
+    };
+
+    for (const [port, items] of Object.entries(cloudData || {})) {
+      const cleanPort = normPort(port);
+      if (!getPortDefByName(cleanPort)) {
+        stats.filtered++;
+        continue;
+      }
+      if (!items || typeof items !== 'object') {
+        stats.filtered++;
+        continue;
+      }
+      const hasUniqueAnchor = cloudPortHasUniqueAnchor(cleanPort, items);
+      if (!localData[cleanPort]) localData[cleanPort] = {};
+
+      for (const [item, info] of Object.entries(items || {})) {
+        const cleanItem = normItem(item);
+        if (isInvalidItemName(cleanItem) || !isAllowedItemForPort(cleanPort, cleanItem)) {
+          stats.filtered++;
+          continue;
+        }
+        if (!info || typeof info !== 'object') {
+          stats.filtered++;
+          continue;
+        }
+
+        const count = num(info.count ?? info.quantity ?? info.stock ?? info.amount);
+        if (count === null) {
+          stats.filtered++;
+          continue;
+        }
+
+        // 1.6.57-CN 修正：像「焦糖玛奇朵 / 黑潮摩卡 / 浮梦拿铁」这种共用商品，
+        // 不能只凭商品名套到所有港区。只有该港区同时有自己的独有商品锚点，才接受共用商品。
+        // 这样可以挡掉伺服器或旧资料把同名商品复制到其它港区的情况。
+        if (isSharedTradeItem(cleanItem) && !hasUniqueAnchor) {
+          console.log('[StellaTrade] 略過疑似跨港共用商品資料：', cleanPort, cleanItem);
+          stats.filtered++;
+          continue;
+        }
+
+        const oldInfo = localData[cleanPort][cleanItem] || {};
+        const incomingInfo = {
+          count,
+          max: num(info.max) ?? oldInfo.max ?? null,
+          time: info.time || '未知',
+          price: info.price || '-',
+          restock: info.restockTime || info.nextRestock || info.restock || '-',
+          lastRestockAt: info.lastRestockAt || oldInfo.lastRestockAt || '',
+          soldOutAt: info.soldOutAt || oldInfo.soldOutAt || '',
+          estimatedRestockAt: info.estimatedRestockAt || oldInfo.estimatedRestockAt || '',
+          estimateStatus: info.estimateStatus || oldInfo.estimateStatus || 'unknown',
+          restockAnchorAt: info.restockAnchorAt || oldInfo.restockAnchorAt || '',
+          restockAnchorCount: info.restockAnchorCount || oldInfo.restockAnchorCount || '',
+          restockAnchorMax: info.restockAnchorMax || oldInfo.restockAnchorMax || '',
+          estimateBasis: info.estimateBasis || oldInfo.estimateBasis || '',
+          estimateText: info.estimateText || info.restockEstimateText || info.estimatedRestockText || oldInfo.estimateText || '',
+          lastRestockSource: info.lastRestockSource || info.restockSource || oldInfo.lastRestockSource || '',
+          observationSource: info.observationSource || info.source || oldInfo.observationSource || '',
+          clientObservedAt: info.clientObservedAt || info.syncVersion || '',
+          syncVersion: info.syncVersion || info.clientObservedAt || ''
+        };
+
+        if (!preferCloud && !shouldAcceptIncomingCloud(oldInfo, incomingInfo)) {
+          console.log('[StellaTrade] 略過較舊雲端資料：', cleanPort, cleanItem);
+          stats.filtered++;
+          continue;
+        }
+
+        const mergedInfo = preferCloud
+          ? Object.assign({}, defaultInfo(), incomingInfo)
+          : applyRestockEstimate(oldInfo, incomingInfo, Date.now());
+
+        if (info.estimatedRestockAt) {
+          const cloudEstimatedAt = toTimestamp(info.estimatedRestockAt);
+          if (cloudEstimatedAt) mergedInfo.estimatedRestockAt = cloudEstimatedAt;
+        }
+        if (info.estimateStatus) mergedInfo.estimateStatus = String(info.estimateStatus || 'unknown');
+        if (info.estimateBasis) mergedInfo.estimateBasis = String(info.estimateBasis || '');
+        const cloudEstimateText = String(info.estimateText || info.restockEstimateText || info.estimatedRestockText || '').trim();
+        if (cloudEstimateText && cloudEstimateText !== '-' && cloudEstimateText !== '資料不足') {
+          mergedInfo.estimateText = cloudEstimateText;
+        }
+        if (info.soldOutAt) {
+          const cloudSoldOutAt = toTimestamp(info.soldOutAt);
+          if (cloudSoldOutAt) mergedInfo.soldOutAt = cloudSoldOutAt;
+        }
+        if (info.lastRestockAt) {
+          const cloudLastRestockAt = toTimestamp(info.lastRestockAt);
+          if (cloudLastRestockAt) mergedInfo.lastRestockAt = cloudLastRestockAt;
+        }
+        if (info.lastRestockSource || info.restockSource) {
+          mergedInfo.lastRestockSource = String(info.lastRestockSource || info.restockSource || '');
+        }
+        if (info.observationSource || info.source) {
+          mergedInfo.observationSource = String(info.observationSource || info.source || '');
+        }
+        if (info.restockAnchorAt) {
+          const cloudAnchorAt = toTimestamp(info.restockAnchorAt);
+          if (cloudAnchorAt) mergedInfo.restockAnchorAt = cloudAnchorAt;
+        }
+        if (info.restockAnchorCount !== undefined && info.restockAnchorCount !== '') {
+          mergedInfo.restockAnchorCount = num(info.restockAnchorCount) ?? mergedInfo.restockAnchorCount;
+        }
+        if (info.restockAnchorMax !== undefined && info.restockAnchorMax !== '') {
+          mergedInfo.restockAnchorMax = num(info.restockAnchorMax) ?? mergedInfo.restockAnchorMax;
+        }
+        mergedInfo.clientObservedAt = incomingInfo.clientObservedAt || incomingInfo.syncVersion || mergedInfo.clientObservedAt || '';
+        mergedInfo.syncVersion = incomingInfo.syncVersion || incomingInfo.clientObservedAt || mergedInfo.syncVersion || '';
+
+        localData[cleanPort][cleanItem] = mergedInfo;
+        stats.applied++;
+        stats.ports.add(cleanPort);
+        if (!stats.firstPort) stats.firstPort = cleanPort;
+      }
+    }
+
+    if (stats.applied > 0) {
+      writeData(localData);
+      if (preferCloud && stats.firstPort) {
+        localStorage.setItem(SELECTED_PORT_KEY, stats.firstPort);
+        const state = readPanelState();
+        state.selectedTab = 'ports';
+        state.selectedPort = stats.firstPort;
+        writePanelState(state);
+      }
+    }
+
+    return stats;
+  }
+
+  function fetchCloudData({ silent = true, force = false, preferCloud = false } = {}) {
     const now = Date.now();
     if (!force && now < cloudPullPausedUntil) {
       lastCloudPullAt = now;
@@ -1165,7 +1461,7 @@
 
     request({
       method: 'GET',
-      url: `${getApiUrl()}?_=${Date.now()}`, 
+      url: `${getApiUrl()}?_=${Date.now()}`,
       headers: { Accept: 'application/json,text/plain,*/*' },
       onload(response) {
         if (response.status !== 200) {
@@ -1187,107 +1483,21 @@
         }
 
         try {
-          const cloudData = parsed.data;
-          const localData = ensureData();
-          let hasUpdate = false;
-
-          for (const [port, items] of Object.entries(cloudData || {})) {
-            const cleanPort = normPort(port);
-            if (!localData[cleanPort]) localData[cleanPort] = {};
-
-            for (const [item, info] of Object.entries(items || {})) {
-              const cleanItem = normItem(item);
-              if (isInvalidItemName(cleanItem)) continue;
-              if (!isAllowedItemForPort(cleanPort, cleanItem)) continue;
-
-              const count = num(info.count ?? info.quantity ?? info.stock ?? info.amount);
-              if (count === null) continue;
-
-              const oldInfo = localData[cleanPort][cleanItem] || {};
-              const incomingInfo = {
-                count,
-                max: num(info.max) ?? oldInfo.max ?? null,
-                time: info.time || '未知',
-                price: info.price || '-',
-                restock: info.restockTime || info.nextRestock || info.restock || '-',
-                lastRestockAt: info.lastRestockAt || oldInfo.lastRestockAt || '',
-                soldOutAt: info.soldOutAt || oldInfo.soldOutAt || '',
-                estimatedRestockAt: info.estimatedRestockAt || oldInfo.estimatedRestockAt || '',
-                estimateStatus: info.estimateStatus || oldInfo.estimateStatus || 'unknown',
-                restockAnchorAt: info.restockAnchorAt || oldInfo.restockAnchorAt || '',
-                restockAnchorCount: info.restockAnchorCount || oldInfo.restockAnchorCount || '',
-                restockAnchorMax: info.restockAnchorMax || oldInfo.restockAnchorMax || '',
-                estimateBasis: info.estimateBasis || oldInfo.estimateBasis || '',
-                estimateText: info.estimateText || info.restockEstimateText || info.estimatedRestockText || oldInfo.estimateText || '',
-                lastRestockSource: info.lastRestockSource || info.restockSource || oldInfo.lastRestockSource || '',
-                observationSource: info.observationSource || info.source || oldInfo.observationSource || '',
-                clientObservedAt: info.clientObservedAt || info.syncVersion || '',
-                syncVersion: info.syncVersion || info.clientObservedAt || ''
-              };
-
-              if (!shouldAcceptIncomingCloud(oldInfo, incomingInfo)) {
-                console.log('[StellaTrade] 略過較舊雲端資料：', cleanPort, cleanItem);
-                continue;
-              }
-
-              const mergedInfo = applyRestockEstimate(oldInfo, incomingInfo, Date.now());
-
-              // 1.6.23 修正：
-              // 若雲端試算表已經有「推估補貨時間 / 推估狀態 / 推估依據」，
-              // 以前可能會被本機重新推算流程或舊快取蓋掉，導致面板仍顯示「資料不足」。
-              // 這裡改成以雲端欄位為準，強制寫回本機資料。
-              if (info.estimatedRestockAt) {
-                const cloudEstimatedAt = toTimestamp(info.estimatedRestockAt);
-                if (cloudEstimatedAt) mergedInfo.estimatedRestockAt = cloudEstimatedAt;
-              }
-              if (info.estimateStatus) mergedInfo.estimateStatus = String(info.estimateStatus || 'unknown');
-              if (info.estimateBasis) mergedInfo.estimateBasis = String(info.estimateBasis || '');
-              const cloudEstimateText = String(info.estimateText || info.restockEstimateText || info.estimatedRestockText || '').trim();
-              if (cloudEstimateText && cloudEstimateText !== '-' && cloudEstimateText !== '資料不足') {
-                mergedInfo.estimateText = cloudEstimateText;
-              }
-              if (info.soldOutAt) {
-                const cloudSoldOutAt = toTimestamp(info.soldOutAt);
-                if (cloudSoldOutAt) mergedInfo.soldOutAt = cloudSoldOutAt;
-              }
-              if (info.lastRestockAt) {
-                const cloudLastRestockAt = toTimestamp(info.lastRestockAt);
-                if (cloudLastRestockAt) mergedInfo.lastRestockAt = cloudLastRestockAt;
-              }
-              if (info.lastRestockSource || info.restockSource) {
-                mergedInfo.lastRestockSource = String(info.lastRestockSource || info.restockSource || '');
-              }
-              if (info.observationSource || info.source) {
-                mergedInfo.observationSource = String(info.observationSource || info.source || '');
-              }
-              if (info.restockAnchorAt) {
-                const cloudAnchorAt = toTimestamp(info.restockAnchorAt);
-                if (cloudAnchorAt) mergedInfo.restockAnchorAt = cloudAnchorAt;
-              }
-              if (info.restockAnchorCount !== undefined && info.restockAnchorCount !== '') {
-                mergedInfo.restockAnchorCount = num(info.restockAnchorCount) ?? mergedInfo.restockAnchorCount;
-              }
-              if (info.restockAnchorMax !== undefined && info.restockAnchorMax !== '') {
-                mergedInfo.restockAnchorMax = num(info.restockAnchorMax) ?? mergedInfo.restockAnchorMax;
-              }
-              mergedInfo.clientObservedAt = incomingInfo.clientObservedAt || incomingInfo.syncVersion || mergedInfo.clientObservedAt || '';
-              mergedInfo.syncVersion = incomingInfo.syncVersion || incomingInfo.clientObservedAt || mergedInfo.syncVersion || '';
-
-              localData[cleanPort][cleanItem] = mergedInfo;
-              hasUpdate = true;
-            }
-          }
+          const cloudData = extractCloudMarketPayload(parsed.data);
+          const stats = applyCloudMarketDataToLocal(cloudData, { preferCloud });
 
           markSyncSuccess();
 
-          if (hasUpdate) {
-            writeData(localData);
-            console.log('[StellaTrade] 雲端同步完成');
+          if (stats.applied > 0) {
+            console.log(`[StellaTrade] 雲端同步完成，套用 ${stats.ports.size} 個港區、${stats.applied} 筆商品，過濾 ${stats.filtered} 筆`);
+            if (!silent) showSyncToast(t('cloudPullOkTitle'), t('cloudPullOkMessage', { ports: stats.ports.size, items: stats.applied }));
           } else {
-            console.log('[StellaTrade] 雲端同步完成，沒有新資料');
+            console.log('[StellaTrade] 雲端同步完成，但沒有可套用資料。過濾筆數：', stats.filtered);
+            if (!silent) showSyncToast(t('cloudPullEmptyTitle'), t('cloudPullEmptyMessage'));
           }
 
           scheduleInject();
+          renderPanel();
           schedulePanelRender();
           scheduleLauncherUpdate();
         } catch (error) {
@@ -2114,7 +2324,7 @@
           <div>
             <div class="stella-setting-title">${escapeHtml(t('cloudDiag'))}</div>
             <div class="stella-setting-sub">${escapeHtml(t('url'))}：${escapeHtml(getApiUrl())}</div>
-            <div class="stella-setting-sub" style="color:#86efac;font-size:12px;">💡 分享版：默認連線雲伺服器。如需切換回 Google（需 VPN），在 Console 執行 localStorage.setItem('stella_custom_api_url','https://script.google.com/macros/s/AKfycbyWdyVKqvwF2SlC8mrJKebK6vg3wsRLsrK4El8ziRj9o4tDV4oz4-rkHJRiWc36wG_pBA/exec') 後重新整理。</div>
+            <div class="stella-setting-sub" style="color:#86efac;font-size:12px;">💡 此為無VPN分享版，已預設連線雲伺服器。無需額外設定，安裝即可使用。</div>
             <div class="stella-setting-sub">${escapeHtml(t('status'))}：${syncState.ok === true ? escapeHtml(t('normal')) : syncState.ok === false ? escapeHtml(t('failed')) : escapeHtml(t('checking'))}</div>
             <div class="stella-setting-sub">${escapeHtml(t('lastSuccess'))}：${syncState.lastSuccessAt ? escapeHtml(new Date(syncState.lastSuccessAt).toLocaleString()) : '-'}</div>
             <div class="stella-setting-sub">${escapeHtml(t('lastFailure'))}：${syncState.lastFailureAt ? escapeHtml(new Date(syncState.lastFailureAt).toLocaleString()) : '-'}</div>
@@ -2673,8 +2883,7 @@
     }
 
     if (action === 'manual-sync') {
-      const uploaded = scrapeCurrentVisibleData({ upload: true, silent: true });
-      if (!uploaded) fetchCloudData({ silent: false, force: true });
+      fetchCloudData({ silent: false, force: true, preferCloud: true });
       return;
     }
 
