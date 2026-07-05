@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         é–’è‘—ä¸Šé‰¤-é›²ç«¯åŒæ­¥è·‘å•†æƒ…å ±ç«™ï¼ˆç„¡VPNç‰ˆï¼‰
+// @name         閒著上鉤-雲端同步跑商情報站（無VPN版）
 // @namespace    https://github.com/szerra/stella-trade-helper
 // @version      1.6.76-CN
-// @description  ä¿®æ­£å…±ç”¨å•†å“è·¨æ¸¯åŒæ­¥ï¼Œä¸‹è¼‰é›²ç«¯è³‡æ–™ä»¥æ¸¯å€éŒ¨é»žåˆ¤å®šã€‚
+// @description  修正共用商品跨港同步，下載雲端資料以港區錨點判定。
 // @author       YourName
 // @homepageURL  https://github.com/szerra/stella-trade-helper
 // @match        *://fishingidle.com/*
@@ -1384,12 +1384,12 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       _0x5790a = _0x1af0b3(0x240),
       _0x1779fa = 0x2 * 0x3c * 0x3c * 0x3e8,
       _0x56ad23 = {
-        æ˜Ÿæ²‰æ¹¾: 0x1c,
-        æ½®é•œç¤: 0x41,
-        é›¾ç¯ç¾¤å²›: 0x84,
-        å¤œå¸†å¸‚: 0xa5,
-        çŠæ–‡æ¸¯: 0xb0,
-        é²¸æ­Œæ¸¯: 0x137,
+        星沉湾: 0x1c,
+        潮镜礁: 0x41,
+        雾灯群岛: 0x84,
+        夜帆市: 0xa5,
+        珊文港: 0xb0,
+        鲸歌港: 0x137,
       };
     function _0x445e6c(_0x59e74e) {
       const _0xad8504 = _0x72ad5e(_0x59e74e),
@@ -1435,91 +1435,91 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         lastError: localStorage[_0x1af0b3(0x306)](_0x5c5b6d) || "",
       },
       _0x110874 = {
-        é›¾ç¯ç¾¤å²›: _0x1af0b3(0x388),
+        雾灯群岛: _0x1af0b3(0x388),
         "Mist\x20Lantern\x20Isles": _0x1af0b3(0x388),
         mist_lantern_isles: _0x1af0b3(0x388),
-        æ˜Ÿæ²‰æ¹¾: _0x1af0b3(0x1f2),
+        星沉湾: _0x1af0b3(0x1f2),
         "Starfall\x20Bay": _0x1af0b3(0x1f2),
         starfall_bay: _0x1af0b3(0x1f2),
-        å¤œå¸†å¸‚: _0x1af0b3(0x16f),
+        夜帆市: _0x1af0b3(0x16f),
         "Night\x20Sail\x20City": _0x1af0b3(0x16f),
         night_sail_city: _0x1af0b3(0x16f),
-        é²¸æ­Œæ¸¯: _0x1af0b3(0x447),
+        鲸歌港: _0x1af0b3(0x447),
         "Whalesong\x20Harbor": _0x1af0b3(0x447),
         "Whale\x20Song\x20Harbor": _0x1af0b3(0x447),
         whale_song_harbor: _0x1af0b3(0x447),
-        æ½®é•œç¤: _0x1af0b3(0x116),
-        æ½®å¢ƒç¤: _0x1af0b3(0x116),
+        潮镜礁: _0x1af0b3(0x116),
+        潮境礁: _0x1af0b3(0x116),
         "Tideglass\x20Reef": _0x1af0b3(0x116),
         tideglass_reef: _0x1af0b3(0x116),
-        çŠæ–‡æ¸¯: _0x1af0b3(0x337),
+        珊文港: _0x1af0b3(0x337),
         "Coral\x20Script\x20Port": _0x1af0b3(0x337),
         coral_script_port: _0x1af0b3(0x337),
       },
       _0xfd3a00 = {
-        é›¾ç¯èŠ¯: _0x1af0b3(0x3e8),
+        雾灯芯: _0x1af0b3(0x3e8),
         "Mist\x20Lantern\x20Wick": _0x1af0b3(0x3e8),
         souvenir_mist_lantern_wick: _0x1af0b3(0x3e8),
-        é›¾é“œç‰Œ: _0x1af0b3(0x1bb),
-        èˆªé›¾é“œç‰Œ: _0x1af0b3(0x1bb),
+        雾铜牌: _0x1af0b3(0x1bb),
+        航雾铜牌: _0x1af0b3(0x1bb),
         "Fogbound\x20Copper\x20Tag": _0x1af0b3(0x1bb),
         souvenir_fogbound_copper_tag: _0x1af0b3(0x1bb),
-        æ˜Ÿæ²™ç“¶: _0x1af0b3(0x3d9),
-        æ˜Ÿç ‚ç“¶: _0x1af0b3(0x3d9),
+        星沙瓶: _0x1af0b3(0x3d9),
+        星砂瓶: _0x1af0b3(0x3d9),
         "Star\x20Sand\x20Bottle": _0x1af0b3(0x3d9),
         souvenir_star_sand_bottle: _0x1af0b3(0x3d9),
-        æµ·å¦–å’–å•¡: _0x1af0b3(0x312),
+        海妖咖啡: _0x1af0b3(0x312),
         "Siren\x20Coffee": _0x1af0b3(0x312),
         coffee_siren: _0x1af0b3(0x312),
-        æµ®æ¢¦æ‹¿é“: _0x1af0b3(0x2d3),
+        浮梦拿铁: _0x1af0b3(0x2d3),
         "Dream\x20Latte": _0x1af0b3(0x2d3),
         coffee_dream_latte: _0x1af0b3(0x2d3),
-        ç„¦ç³–çŽ›å¥‡æœµ: _0x1af0b3(0x28c),
-        ç¤ç³–çŽ›å¥‡æœµ: _0x1af0b3(0x28c),
+        焦糖玛奇朵: _0x1af0b3(0x28c),
+        礁糖玛奇朵: _0x1af0b3(0x28c),
         "Reef\x20Sugar\x20Macchiato": _0x1af0b3(0x28c),
         coffee_reef_sugar_macchiato: _0x1af0b3(0x28c),
-        å°æ€¥æ•‘åŒ…: _0x1af0b3(0x2c9),
-        ä¸€æ¬¡æ€§é†«ç™‚ç‰©å“: _0x1af0b3(0x2c9),
-        ä¸€æ¬¡æ€§åŒ»ç–—ç‰©å“: _0x1af0b3(0x2c9),
+        小急救包: _0x1af0b3(0x2c9),
+        一次性醫療物品: _0x1af0b3(0x2c9),
+        一次性医疗物品: _0x1af0b3(0x2c9),
         "Small\x20First\x20Aid\x20Kit": _0x1af0b3(0x2c9),
         "Small\x20Medical\x20Kit": _0x1af0b3(0x2c9),
         med_small_kit: _0x1af0b3(0x2c9),
-        å¤œå¸†å¸ƒ: _0x1af0b3(0x19e),
-        å¤œå¸†ç»¸: _0x1af0b3(0x19e),
-        å¤œå¸†çµ¹: _0x1af0b3(0x19e),
-        å¤œå¸†ç»³: _0x1af0b3(0x19e),
-        å¤œå¸†ç¹©: _0x1af0b3(0x19e),
+        夜帆布: _0x1af0b3(0x19e),
+        夜帆绸: _0x1af0b3(0x19e),
+        夜帆絹: _0x1af0b3(0x19e),
+        夜帆绳: _0x1af0b3(0x19e),
+        夜帆繩: _0x1af0b3(0x19e),
         "Night\x20Sail\x20Silk": _0x1af0b3(0x19e),
         souvenir_night_sail_silk: _0x1af0b3(0x19e),
-        å°ç±³é…’: "ç±³é…’",
-        ç±³é…’: "ç±³é…’",
-        "Rice\x20Wine": "ç±³é…’",
-        adv_cons_rice_wine: "ç±³é…’",
-        çƒˆé…’: "çƒˆé…’",
-        "Strong\x20Liquor": "çƒˆé…’",
-        cons_strong_liquor: "çƒˆé…’",
-        ä¸­æ€¥æ•‘åŒ…: _0x1af0b3(0x2bd),
+        小米酒: "米酒",
+        米酒: "米酒",
+        "Rice\x20Wine": "米酒",
+        adv_cons_rice_wine: "米酒",
+        烈酒: "烈酒",
+        "Strong\x20Liquor": "烈酒",
+        cons_strong_liquor: "烈酒",
+        中急救包: _0x1af0b3(0x2bd),
         "Medium\x20First\x20Aid\x20Kit": _0x1af0b3(0x2bd),
         "Medium\x20Medical\x20Kit": _0x1af0b3(0x2bd),
         med_medium_kit: _0x1af0b3(0x2bd),
-        é²¸æ­Œéª¨ç¬›: _0x1af0b3(0x423),
+        鲸歌骨笛: _0x1af0b3(0x423),
         "Whalesong\x20Bone\x20Flute": _0x1af0b3(0x423),
         "Whale\x20Bone\x20Flute": _0x1af0b3(0x423),
         souvenir_whale_bone_flute: _0x1af0b3(0x423),
-        å®‰ç¥žè´éœ²: _0x1af0b3(0x12e),
+        安神贝露: _0x1af0b3(0x12e),
         "Soothing\x20Shell\x20Dew": _0x1af0b3(0x12e),
         coffee_soothing_shell_dew: _0x1af0b3(0x12e),
-        æ½®é•œè´: _0x1af0b3(0x3b6),
+        潮镜贝: _0x1af0b3(0x3b6),
         "Tideglass\x20Shell": _0x1af0b3(0x3b6),
         souvenir_tideglass_shell: _0x1af0b3(0x3b6),
-        é»‘æ½®æ‘©å¡: _0x1af0b3(0x28d),
+        黑潮摩卡: _0x1af0b3(0x28d),
         "Black\x20Tide\x20Mocha": _0x1af0b3(0x28d),
         coffee_black_tide_mocha: _0x1af0b3(0x28d),
-        å¹»æ½®å†·èƒ: _0x1af0b3(0x145),
+        幻潮冷萃: _0x1af0b3(0x145),
         "Phantom\x20Tide\x20Cold\x20Brew": _0x1af0b3(0x145),
         coffee_phantom_tide_cold_brew: _0x1af0b3(0x145),
-        çŠæ–‡ç­¾: _0x1af0b3(0x34a),
-        çŠæ–‡ç±¤: _0x1af0b3(0x34a),
+        珊文签: _0x1af0b3(0x34a),
+        珊文籤: _0x1af0b3(0x34a),
         "Coral\x20Script\x20Bookmark": _0x1af0b3(0x34a),
         souvenir_coral_script_bookmark: _0x1af0b3(0x34a),
       },
@@ -1529,7 +1529,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           keywords: [
             _0x1af0b3(0x1f2),
             _0x1af0b3(0x281),
-            "æ˜Ÿæ²‰",
+            "星沉",
             _0x1af0b3(0x3fd),
             _0x1af0b3(0x3e1),
           ],
@@ -1544,7 +1544,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           port: _0x1af0b3(0x16f),
           keywords: [
             _0x1af0b3(0x16f),
-            "å¤œå¸†",
+            "夜帆",
             _0x1af0b3(0x176),
             _0x1af0b3(0x330),
             _0x1af0b3(0x324),
@@ -1555,7 +1555,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           port: _0x1af0b3(0x447),
           keywords: [
             _0x1af0b3(0x447),
-            "é²¸æ­Œ",
+            "鲸歌",
             _0x1af0b3(0x3aa),
             _0x1af0b3(0x128),
             _0x1af0b3(0x16a),
@@ -1568,8 +1568,8 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           keywords: [
             _0x1af0b3(0x116),
             _0x1af0b3(0x494),
-            "æ½®é•œ",
-            "æ½®å¢ƒ",
+            "潮镜",
+            "潮境",
             _0x1af0b3(0x23a),
             _0x1af0b3(0x22e),
             _0x1af0b3(0x2a9),
@@ -1580,8 +1580,8 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           port: _0x1af0b3(0x388),
           keywords: [
             _0x1af0b3(0x388),
-            "é›¾ç¯",
-            "æ‘†ç¯",
+            "雾灯",
+            "摆灯",
             _0x1af0b3(0x13a),
             _0x1af0b3(0x35c),
             _0x1af0b3(0x29f),
@@ -1598,7 +1598,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           port: _0x1af0b3(0x337),
           keywords: [
             _0x1af0b3(0x337),
-            "çŠæ–‡",
+            "珊文",
             _0x1af0b3(0x247),
             _0x1af0b3(0x1f4),
             _0x1af0b3(0x48b),
@@ -1654,7 +1654,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           !!_0x3b0696 &&
           _0x3b0696 !== "-" &&
           _0x3b0696 !== _0x4abd7c(0x18a) &&
-          _0x3b0696 !== "æœªçŸ¥";
+          _0x3b0696 !== "未知";
       return !!(
         _0x51eae2 ||
         _0x1af4fd[_0x4abd7c(0x4ed)] ||
@@ -1680,52 +1680,52 @@ function a0_0x2779(_0x18d145, _0x53287d) {
     }
     const _0x4c221e = {
         zh: {
-          æ˜Ÿæ²‰æ¹¾: _0x1af0b3(0x1f2),
-          å¤œå¸†å¸‚: _0x1af0b3(0x16f),
-          é²¸æ­Œæ¸¯: _0x1af0b3(0x447),
-          æ½®é•œç¤: _0x1af0b3(0x116),
-          é›¾ç¯ç¾¤å²›: _0x1af0b3(0x388),
-          çŠæ–‡æ¸¯: _0x1af0b3(0x337),
+          星沉湾: _0x1af0b3(0x1f2),
+          夜帆市: _0x1af0b3(0x16f),
+          鲸歌港: _0x1af0b3(0x447),
+          潮镜礁: _0x1af0b3(0x116),
+          雾灯群岛: _0x1af0b3(0x388),
+          珊文港: _0x1af0b3(0x337),
         },
         en: {
-          æ˜Ÿæ²‰æ¹¾: _0x1af0b3(0x281),
-          å¤œå¸†å¸‚: _0x1af0b3(0x176),
-          é²¸æ­Œæ¸¯: _0x1af0b3(0x3aa),
-          æ½®é•œç¤: _0x1af0b3(0x23a),
-          é›¾ç¯ç¾¤å²›: _0x1af0b3(0x13a),
-          çŠæ–‡æ¸¯: _0x1af0b3(0x247),
+          星沉湾: _0x1af0b3(0x281),
+          夜帆市: _0x1af0b3(0x176),
+          鲸歌港: _0x1af0b3(0x3aa),
+          潮镜礁: _0x1af0b3(0x23a),
+          雾灯群岛: _0x1af0b3(0x13a),
+          珊文港: _0x1af0b3(0x247),
         },
       },
       _0xa0229d = {
         zh: {
-          æ˜Ÿç ‚ç“¶: _0x1af0b3(0x3d9),
-          æµ®æ¢¦æ‹¿é“: _0x1af0b3(0x2d3),
-          æµ·å¦–å’–å•¡: _0x1af0b3(0x312),
-          ç„¦ç³–çŽ›å¥‡æœµ: _0x1af0b3(0x28c),
-          å¤œå¸†å¸ƒ: _0x1af0b3(0x19e),
-          é»‘æ½®æ‘©å¡: _0x1af0b3(0x28d),
-          å®‰ç¥žè´éœ²: _0x1af0b3(0x12e),
-          é²¸æ­Œéª¨ç¬›: _0x1af0b3(0x423),
-          æ½®é•œè´: _0x1af0b3(0x3b6),
-          é›¾é“œç‰Œ: _0x1af0b3(0x1bb),
-          é›¾ç¯èŠ¯: _0x1af0b3(0x3e8),
-          å¹»æ½®å†·èƒ: _0x1af0b3(0x145),
-          çŠæ–‡ç­¾: _0x1af0b3(0x34a),
+          星砂瓶: _0x1af0b3(0x3d9),
+          浮梦拿铁: _0x1af0b3(0x2d3),
+          海妖咖啡: _0x1af0b3(0x312),
+          焦糖玛奇朵: _0x1af0b3(0x28c),
+          夜帆布: _0x1af0b3(0x19e),
+          黑潮摩卡: _0x1af0b3(0x28d),
+          安神贝露: _0x1af0b3(0x12e),
+          鲸歌骨笛: _0x1af0b3(0x423),
+          潮镜贝: _0x1af0b3(0x3b6),
+          雾铜牌: _0x1af0b3(0x1bb),
+          雾灯芯: _0x1af0b3(0x3e8),
+          幻潮冷萃: _0x1af0b3(0x145),
+          珊文签: _0x1af0b3(0x34a),
         },
         en: {
-          æ˜Ÿç ‚ç“¶: _0x1af0b3(0x1eb),
-          æµ®æ¢¦æ‹¿é“: _0x1af0b3(0x2ab),
-          æµ·å¦–å’–å•¡: _0x1af0b3(0x219),
-          ç„¦ç³–çŽ›å¥‡æœµ: _0x1af0b3(0x3bf),
-          å¤œå¸†å¸ƒ: _0x1af0b3(0x407),
-          é»‘æ½®æ‘©å¡: _0x1af0b3(0x39c),
-          å®‰ç¥žè´éœ²: _0x1af0b3(0x126),
-          é²¸æ­Œéª¨ç¬›: _0x1af0b3(0x420),
-          æ½®é•œè´: _0x1af0b3(0x2dc),
-          é›¾é“œç‰Œ: _0x1af0b3(0x504),
-          é›¾ç¯èŠ¯: _0x1af0b3(0x3e6),
-          å¹»æ½®å†·èƒ: _0x1af0b3(0x1b1),
-          çŠæ–‡ç­¾: _0x1af0b3(0x201),
+          星砂瓶: _0x1af0b3(0x1eb),
+          浮梦拿铁: _0x1af0b3(0x2ab),
+          海妖咖啡: _0x1af0b3(0x219),
+          焦糖玛奇朵: _0x1af0b3(0x3bf),
+          夜帆布: _0x1af0b3(0x407),
+          黑潮摩卡: _0x1af0b3(0x39c),
+          安神贝露: _0x1af0b3(0x126),
+          鲸歌骨笛: _0x1af0b3(0x420),
+          潮镜贝: _0x1af0b3(0x2dc),
+          雾铜牌: _0x1af0b3(0x504),
+          雾灯芯: _0x1af0b3(0x3e6),
+          幻潮冷萃: _0x1af0b3(0x1b1),
+          珊文签: _0x1af0b3(0x201),
         },
       },
       _0x305e32 = {
@@ -1742,31 +1742,31 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           markRead: _0x1af0b3(0x206),
           newItem: _0x1af0b3(0x36e),
           itemRemoved: _0x1af0b3(0x264),
-          original: "åŽŸ",
-          coin: "é­šå¹£",
+          original: "原",
+          coin: "魚幣",
           restockChanged: _0x1af0b3(0x1a6),
           itemCount: _0x1af0b3(0x2ba),
           lastUpdate: _0x1af0b3(0x2af),
           lowStock: _0x1af0b3(0x3a5),
           changeCount: _0x1af0b3(0x393),
           noChange: _0x1af0b3(0x287),
-          sort: "æŽ’åº",
+          sort: "排序",
           sortLowStock: _0x1af0b3(0x1a5),
           sortTime: _0x1af0b3(0x27c),
-          sortPrice: "åƒ¹æ ¼",
+          sortPrice: "價格",
           sortName: _0x1af0b3(0x1d0),
           goodsEmpty: _0x1af0b3(0x51a),
-          update: "æ›´æ–°",
-          restock: "è£œè²¨",
+          update: "更新",
+          restock: "補貨",
           estimatedRestock: _0x1af0b3(0x4db),
           restockBasisSkill: _0x1af0b3(0x36f),
-          added: "æ–°å¢ž",
-          disappeared: "æ¶ˆå¤±",
-          changed: "è®Šæ›´",
-          settingsLanguage: "èªžè¨€",
+          added: "新增",
+          disappeared: "消失",
+          changed: "變更",
+          settingsLanguage: "語言",
           settingsLanguageSub: _0x1af0b3(0x4ff),
           langAuto: _0x1af0b3(0x39e),
-          langZh: "ä¸­æ–‡",
+          langZh: "中文",
           langEn: _0x1af0b3(0x3c1),
           quickScan: _0x1af0b3(0x1d1),
           quickScanSub: _0x1af0b3(0x456),
@@ -1787,36 +1787,36 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           lowStockRatio: _0x1af0b3(0x522),
           lowStockRatioSub: _0x1af0b3(0x18e),
           cloudDiag: _0x1af0b3(0x40f),
-          url: "ç¶²å€",
-          status: "ç‹€æ…‹",
-          normal: "æ­£å¸¸",
-          failed: "å¤±æ•—",
+          url: "網址",
+          status: "狀態",
+          normal: "正常",
+          failed: "失敗",
           checking: _0x1af0b3(0x47d),
           lastSuccess: _0x1af0b3(0x1fb),
           lastFailure: _0x1af0b3(0x403),
-          error: "éŒ¯èª¤",
+          error: "錯誤",
           resetChanges: _0x1af0b3(0x328),
           scanCurrent: _0x1af0b3(0x336),
           syncNow: _0x1af0b3(0x125),
           pingCloud: _0x1af0b3(0x3c4),
           panelTitle: _0x1af0b3(0x254),
           panelSubtitle: _0x1af0b3(0x2b0),
-          close: "é—œé–‰",
+          close: "關閉",
           hasChanges: _0x1af0b3(0x307),
           noNewChanges: _0x1af0b3(0x326),
-          tabChanges: "è®ŠåŒ–",
-          tabOverview: "æ¦‚è¦½",
-          tabPorts: "æ¸¯å£",
-          tabSettings: "è¨­å®š",
+          tabChanges: "變化",
+          tabOverview: "概覽",
+          tabPorts: "港口",
+          tabSettings: "設定",
           launcher: _0x1af0b3(0x4c7),
           travelTitle: _0x1af0b3(0x197),
           travelDuration: _0x1af0b3(0x382),
           travelArrive: _0x1af0b3(0x29e),
           travelReturn: _0x1af0b3(0x519),
-          tomorrow: "æ˜Žå¤©",
+          tomorrow: "明天",
           goodsInfo: _0x1af0b3(0x353),
           itemsShort: _0x1af0b3(0x2ce),
-          estimate: "æŽ¨ä¼°",
+          estimate: "推估",
           noSyncData: _0x1af0b3(0x1b0),
           resetToastTitle: _0x1af0b3(0x39a),
           resetToastMessage: _0x1af0b3(0x3ba),
@@ -1836,9 +1836,9 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           voyageCount: _0x1af0b3(0x4e0),
           voyageCountEmpty: _0x1af0b3(0x2c7),
           voyageArriving: _0x1af0b3(0x329),
-          voyageStatusDeparting: "å‰å¾€",
-          voyageStatusReturning: "è¿”èˆª",
-          voyageStatusArrived: "åˆ°æ¸¯",
+          voyageStatusDeparting: "前往",
+          voyageStatusReturning: "返航",
+          voyageStatusArrived: "到港",
         },
         en: {
           syncLast: _0x1af0b3(0x47f),
@@ -1877,7 +1877,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           settingsLanguage: _0x1af0b3(0x4c8),
           settingsLanguageSub: _0x1af0b3(0x2f1),
           langAuto: _0x1af0b3(0x39e),
-          langZh: "ä¸­æ–‡",
+          langZh: "中文",
           langEn: _0x1af0b3(0x3c1),
           quickScan: _0x1af0b3(0x497),
           quickScanSub: _0x1af0b3(0x221),
@@ -1966,7 +1966,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           /\b(Quantity|Details|Language|Stock|Price|Restock|Depart|Return|Market|Warehouse|Trade Info|Coins)\b/g,
         ) || [])[_0x1fbb31(0x40a)],
         _0x5a45ae = (_0xb51c71[_0x1fbb31(0x1d8)](
-          /(æ•¸é‡|æ•°é‡|è©³æƒ…|è¯¦æƒ…|èªžè¨€|è¯­è¨€|åº«å­˜|åº“å­˜|åƒ¹æ ¼|ä»·æ ¼|è£œè²¨|è¡¥è´§|å‡ºç™¼|å‡ºå‘|è¿”å›ž|è¿”èˆª|å¸‚å ´|å¸‚åœº|å€‰åº«|ä»“åº“)/g,
+          /(數量|数量|詳情|详情|語言|语言|庫存|库存|價格|价格|補貨|补货|出發|出发|返回|返航|市場|市场|倉庫|仓库)/g,
         ) || [])[_0x1fbb31(0x40a)];
       if (_0x261337 > _0x5a45ae && _0x261337 >= 0x2) return "en";
       if (_0x5a45ae > 0x0) return "zh";
@@ -2189,42 +2189,42 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         _0x3fda29 = String(_0x3f1adb || "")[_0x4e6b34(0x3db)](),
         _0x2b74cd = _0x3fda29[_0x4e6b34(0x2da)]();
       if (!_0x3fda29 || _0x3fda29[_0x4e6b34(0x40a)] > 0x12) return !![];
-      if (/[ã€‚ï¼ï¼Ÿ!?ï¼Œ,ï¼›;ï¼š:]/[_0x4e6b34(0x190)](_0x3fda29)) return !![];
+      if (/[。！？!?，,；;：:]/[_0x4e6b34(0x190)](_0x3fda29)) return !![];
       if (
         _0x3fda29[_0x4e6b34(0x34d)](_0x4e6b34(0x43e)) ||
         _0x3fda29[_0x4e6b34(0x34d)](_0x4e6b34(0x365)) ||
         _0x3fda29[_0x4e6b34(0x34d)](_0x4e6b34(0x46e)) ||
         _0x3fda29[_0x4e6b34(0x34d)](_0x4e6b34(0x217)) ||
-        _0x3fda29[_0x4e6b34(0x34d)]("æè¿°") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("èªªæ˜Ž") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("è¯´æ˜Ž")
+        _0x3fda29[_0x4e6b34(0x34d)]("描述") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("說明") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("说明")
       )
         return !![];
       return (
-        _0x3fda29[_0x4e6b34(0x34d)]("é¡žåˆ¥") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("ç±»åˆ«") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("類別") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("类别") ||
         _0x2b74cd[_0x4e6b34(0x34d)](_0x4e6b34(0x375)) ||
         _0x2b74cd === _0x4e6b34(0x2be) ||
         _0x2b74cd === _0x4e6b34(0x1b9) ||
-        _0x3fda29[_0x4e6b34(0x34d)]("æ•ˆæžœ") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("å†·å»") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("å†·å´") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("åƒ¹æ ¼") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("ä»·æ ¼") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("å”®åƒ¹") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("å”®ä»·") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("å–®åƒ¹") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("å•ä»·") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("åº«å­˜") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("åº“å­˜") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("è£œè²¨") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("è¡¥è´§") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("æ•¸é‡") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("æ•°é‡") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("åˆè¨ˆ") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("æ€»è®¡") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("è³¼è²·") ||
-        _0x3fda29[_0x4e6b34(0x34d)]("è´­ä¹°") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("效果") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("冷卻") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("冷却") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("價格") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("价格") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("售價") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("售价") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("單價") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("单价") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("庫存") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("库存") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("補貨") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("补货") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("數量") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("数量") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("合計") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("总计") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("購買") ||
+        _0x3fda29[_0x4e6b34(0x34d)]("购买") ||
         _0x2b74cd[_0x4e6b34(0x34d)](_0x4e6b34(0x39b)) ||
         _0x2b74cd[_0x4e6b34(0x34d)](_0x4e6b34(0x24e)) ||
         _0x2b74cd[_0x4e6b34(0x34d)](_0x4e6b34(0x18b)) ||
@@ -2238,8 +2238,8 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       const _0x4bdec0 = a0_0x2779,
         _0x29beb2 = String(_0x434d30 || "");
       return (
-        _0x29beb2[_0x4bdec0(0x34d)]("é¡žåˆ¥") ||
-        _0x29beb2[_0x4bdec0(0x34d)]("ç±»åˆ«") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("類別") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("类别") ||
         _0x29beb2[_0x4bdec0(0x2da)]()[_0x4bdec0(0x34d)](_0x4bdec0(0x375)) ||
         _0x29beb2[_0x4bdec0(0x2da)]()[_0x4bdec0(0x34d)](_0x4bdec0(0x39b)) ||
         _0x29beb2[_0x4bdec0(0x2da)]()[_0x4bdec0(0x34d)](_0x4bdec0(0x24e)) ||
@@ -2247,15 +2247,15 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         _0x29beb2[_0x4bdec0(0x2da)]()[_0x4bdec0(0x34d)](_0x4bdec0(0x31d)) ||
         _0x29beb2[_0x4bdec0(0x2da)]()[_0x4bdec0(0x34d)](_0x4bdec0(0x163)) ||
         _0x29beb2[_0x4bdec0(0x2da)]()[_0x4bdec0(0x34d)](_0x4bdec0(0x15a)) ||
-        _0x29beb2[_0x4bdec0(0x34d)]("æ•ˆæžœ") ||
-        _0x29beb2[_0x4bdec0(0x34d)]("å†·å»") ||
-        _0x29beb2[_0x4bdec0(0x34d)]("å†·å´") ||
-        _0x29beb2[_0x4bdec0(0x34d)]("å–®åƒ¹") ||
-        _0x29beb2[_0x4bdec0(0x34d)]("å•ä»·") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("效果") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("冷卻") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("冷却") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("單價") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("单价") ||
         _0x29beb2[_0x4bdec0(0x34d)](_0x4bdec0(0x1c3)) ||
         _0x29beb2[_0x4bdec0(0x34d)](_0x4bdec0(0x4b5)) ||
-        _0x29beb2[_0x4bdec0(0x34d)]("åˆè¨ˆ") ||
-        _0x29beb2[_0x4bdec0(0x34d)]("æ€»è®¡")
+        _0x29beb2[_0x4bdec0(0x34d)]("合計") ||
+        _0x29beb2[_0x4bdec0(0x34d)]("总计")
       );
     }
     function _0x2cb9e6(_0x3d43da) {
@@ -2311,7 +2311,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
               _0x4ac8b1[_0x4b4249(0x526)] ||
               _0x4ac8b1[_0x4b4249(0x26a)] ||
               "-",
-            time: _0x4ac8b1[_0x4b4249(0x45c)] || "æœªçŸ¥",
+            time: _0x4ac8b1[_0x4b4249(0x45c)] || "未知",
             lastRestockAt: _0x4ac8b1[_0x4b4249(0x1e9)] || "",
             soldOutAt: _0x4ac8b1[_0x4b4249(0x34e)] || "",
             estimatedRestockAt: _0x4ac8b1[_0x4b4249(0x439)] || "",
@@ -2475,7 +2475,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         if (!_0x5c37d2 || _0x5c37d2[_0x2d851d(0x40a)] > 0x384) continue;
         const _0x565124 =
           _0x5c37d2[_0x2d851d(0x1d8)](
-            /(?:åº“å­˜|åº«å­˜|Stock|Quantity|Qty)\s*[:ï¼š]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi,
+            /(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi,
           ) || [];
         if (_0x565124[_0x2d851d(0x40a)] !== 0x1) continue;
         _0x4a1af6[_0x2d851d(0x246)](_0x5c37d2);
@@ -2629,7 +2629,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
     function _0x49a7b2(_0x2be50c) {
       const _0x264a56 = a0_0x2779,
         _0x1c6d16 = _0x2be50c[_0x264a56(0x1d8)](
-          /(?:åº“å­˜|åº«å­˜|Stock|Quantity|Qty)\s*[:ï¼š]?\s*([0-9,]+)\s*\/\s*([0-9,]+)/i,
+          /(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*([0-9,]+)\s*\/\s*([0-9,]+)/i,
         );
       if (!_0x1c6d16) return null;
       const _0x2ead41 = _0x452e3a(_0x1c6d16[0x1]),
@@ -2640,11 +2640,11 @@ function a0_0x2779(_0x18d145, _0x53287d) {
     function _0x220a4f(_0x3f101e) {
       const _0x38b578 = a0_0x2779,
         _0x110e37 = _0x3f101e[_0x38b578(0x1d8)](
-          /(?:åƒ¹æ ¼|ä»·æ ¼|å”®ä»·|å”®åƒ¹|å–®åƒ¹|å•ä»·|Price|Sale Price|Unit Price)[:ï¼š]?\s*([0-9,]+)/i,
+          /(?:價格|价格|售价|售價|單價|单价|Price|Sale Price|Unit Price)[:：]?\s*([0-9,]+)/i,
         );
       if (_0x110e37) return String(_0x452e3a(_0x110e37[0x1]) ?? _0x110e37[0x1]);
       const _0x353a19 = _0x3f101e[_0x38b578(0x1d8)](
-        /([0-9,]+)\s*(?:é‡‘å¸|é‡‘å¹£|é±¼å¸|é­šå¹£|å¹£|å¸|Coins?|Gold)/i,
+        /([0-9,]+)\s*(?:金币|金幣|鱼币|魚幣|幣|币|Coins?|Gold)/i,
       );
       if (_0x353a19) return String(_0x452e3a(_0x353a19[0x1]) ?? _0x353a19[0x1]);
       return "-";
@@ -2652,7 +2652,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
     function _0x3ebd2b(_0x1df87d) {
       const _0xb90f2d = a0_0x2779,
         _0x126138 = _0x1df87d[_0xb90f2d(0x1d8)](
-          /(?:è£œè²¨|è¡¥è´§|è£œè²¨æ™‚é–“|è¡¥è´§æ—¶é—´|Restock|Restock Time|Next Restock)[:ï¼š]?\s*([0-9/:.\-\s]+(?:ä¸Šåˆ|ä¸‹åˆ|AM|PM)?\s*[0-9/:.\-\s]*)/i,
+          /(?:補貨|补货|補貨時間|补货时间|Restock|Restock Time|Next Restock)[:：]?\s*([0-9/:.\-\s]+(?:上午|下午|AM|PM)?\s*[0-9/:.\-\s]*)/i,
         );
       return _0x126138 ? _0x126138[0x1][_0xb90f2d(0x3db)]() : "-";
     }
@@ -2685,7 +2685,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           return _0x1d8a1e(_0x32e918);
       }
       const _0x21a2bc = _0x4bcef8[_0x1de77a(0x42d)](
-          /(?:åƒ¹æ ¼|ä»·æ ¼|å”®åƒ¹|å”®ä»·|å–®åƒ¹|å•ä»·|[0-9,]+\s*(?:é‡‘å¸|é‡‘å¹£|é±¼å¸|é­šå¹£|å¹£|å¸))/,
+          /(?:價格|价格|售價|售价|單價|单价|[0-9,]+\s*(?:金币|金幣|鱼币|魚幣|幣|币))/,
         )[0x0],
         _0x33c60e = _0x21a2bc[_0x1de77a(0x2b3)](/[\n\r\t]/g, "\x20")
           [_0x1de77a(0x2b3)](/\s+/g, "\x20")
@@ -2709,7 +2709,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         if (!_0x3eede1 || _0x3eede1[_0x17755f(0x40a)] > 0x384) continue;
         const _0x332baa =
           _0x3eede1[_0x17755f(0x1d8)](
-            /(?:åº“å­˜|åº«å­˜|Stock|Quantity|Qty)\s*[:ï¼š]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi,
+            /(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi,
           ) || [];
         if (_0x332baa[_0x17755f(0x40a)] !== 0x1) continue;
         const _0x34c696 = _0x49a7b2(_0x3eede1);
@@ -2751,8 +2751,8 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           _0x448de4[_0x26adf5(0x34d)](_0x26adf5(0x520)) ||
           _0x448de4[_0x26adf5(0x34d)](_0x26adf5(0x460)) ||
           _0x448de4[_0x26adf5(0x34d)](_0x26adf5(0x51c))) &&
-        (_0x448de4[_0x26adf5(0x34d)]("åº«å­˜") ||
-          _0x448de4[_0x26adf5(0x34d)]("åº“å­˜") ||
+        (_0x448de4[_0x26adf5(0x34d)]("庫存") ||
+          _0x448de4[_0x26adf5(0x34d)]("库存") ||
           _0x448de4[_0x26adf5(0x34d)](_0x26adf5(0x297)) ||
           _0x448de4[_0x26adf5(0x34d)](_0x26adf5(0x424)))
       );
@@ -2807,7 +2807,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       const _0x50232c = a0_0x2779,
         _0x1e7527 = String(_0x249159 || "");
       let _0x1c4623 = _0x1e7527[_0x50232c(0x1d8)](
-        /(?:ä¸Šæ¬¡åˆ·æ–°|ä¸Šæ¬¡è£œè²¨|ä¸Šæ¬¡è¡¥è´§|Last\s+Refresh|Last\s+Restock)\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/,
+        /(?:上次刷新|上次補貨|上次补货|Last\s+Refresh|Last\s+Restock)\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/,
       );
       if (_0x1c4623) {
         const [
@@ -2830,7 +2830,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         return Number[_0x50232c(0x4f8)](_0x5b2556) ? _0x5b2556 : null;
       }
       _0x1c4623 = _0x1e7527[_0x50232c(0x1d8)](
-        /(?:ä¸Šæ¬¡åˆ·æ–°|ä¸Šæ¬¡è£œè²¨|ä¸Šæ¬¡è¡¥è´§|Last\s+Refresh|Last\s+Restock)\s*(\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/,
+        /(?:上次刷新|上次補貨|上次补货|Last\s+Refresh|Last\s+Restock)\s*(\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/,
       );
       if (!_0x1c4623) return null;
       const [, _0x218fd9, _0x3515d9, _0x4b03ff, _0x4512f8, _0x49a851] =
@@ -2870,14 +2870,14 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         const _0x4ca714 = _0x11279d[_0x5ce299(0x3b8)]?.[_0x5ce299(0x3db)]();
         if (!_0x4ca714 || _0x4ca714[_0x5ce299(0x40a)] > 0x4b0) continue;
         if (
-          !/(ä¸Šæ¬¡(?:åˆ·æ–°|è£œè²¨|è¡¥è´§)|Last\s+(?:Refresh|Restock))/i[
+          !/(上次(?:刷新|補貨|补货)|Last\s+(?:Refresh|Restock))/i[
             _0x5ce299(0x190)
           ](_0x4ca714)
         )
           continue;
         const _0xfd1ac1 =
           _0x4ca714[_0x5ce299(0x1d8)](
-            /(?:åº“å­˜|åº«å­˜|Stock|Quantity|Qty)\s*[:ï¼š]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi,
+            /(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/gi,
           ) || [];
         if (_0xfd1ac1[_0x5ce299(0x40a)] !== 0x1) continue;
         const _0x3293c9 = _0x49a7b2(_0x4ca714);
@@ -2947,8 +2947,8 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           console[_0x2bf3bf(0x516)](
             _0x2bf3bf(0x19d) +
               (_0x546c5c[_0x2bf3bf(0x30d)] === _0x2bf3bf(0x4d1)
-                ? "å‰å¾€"
-                : "è¿”èˆª") +
+                ? "前往"
+                : "返航") +
               _0x2bf3bf(0x491),
           );
         return ![];
@@ -3064,11 +3064,11 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         console[_0x2bf3bf(0x516)](
           _0x2bf3bf(0x14c) +
             _0x397568[_0x2bf3bf(0x2f0)] +
-            "ï¼š" +
+            "：" +
             _0x43a601 +
             _0x2bf3bf(0x33a) +
             _0x5774a6 +
-            "ï¼‰",
+            "）",
         );
         if (_0x4fade6 && _0x1d5e31()[_0x2bf3bf(0x3a3)])
           _0x27b4b3(
@@ -3359,7 +3359,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
                 _0x452e3a(_0x5009ae[_0x52d2af(0x238)]) ??
                 _0x4ceec3[_0x52d2af(0x238)] ??
                 null,
-              time: _0x5009ae[_0x52d2af(0x45c)] || "æœªçŸ¥",
+              time: _0x5009ae[_0x52d2af(0x45c)] || "未知",
               price: _0x5009ae[_0x52d2af(0x31d)] || "-",
               restock:
                 _0x5009ae[_0x52d2af(0x4ea)] ||
@@ -3584,7 +3584,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
                     _0x517421[_0x32e123(0x3d6)] +
                     _0x32e123(0x267) +
                     _0x517421[_0x32e123(0x253)] +
-                    "\x20ç­†",
+                    "\x20筆",
                 );
                 if (!silent)
                   _0x27b4b3(
@@ -3996,7 +3996,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
               _0x45de3d &&
               _0x45de3d !== "-" &&
               _0x45de3d !== _0x319ce0(0x18a) &&
-              _0x45de3d !== "æœªçŸ¥",
+              _0x45de3d !== "未知",
           );
       if (!_0x5a2846[_0x319ce0(0x40a)]) return _0x319ce0(0x18a);
       return (
@@ -4024,7 +4024,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         !_0x574d7f ||
         _0x574d7f === "-" ||
         _0x574d7f === _0x10f130(0x18a) ||
-        _0x574d7f === "æœªçŸ¥" ||
+        _0x574d7f === "未知" ||
         _0x574d7f === _0x10f130(0x1a4)
       )
         return null;
@@ -4137,8 +4137,8 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       const _0x52717d = _0xb05d7e(new Date(_0x140ca1), new Date());
       return (
         (_0x140ca1 < Date[_0x2e4e9f(0x33f)]()
-          ? _0x157477("å·²éŽ", _0x2e4e9f(0x14f))
-          : _0x157477("ç´„", _0x2e4e9f(0x322))) +
+          ? _0x157477("已過", _0x2e4e9f(0x14f))
+          : _0x157477("約", _0x2e4e9f(0x322))) +
         "\x20" +
         _0x52717d
       );
@@ -4225,17 +4225,17 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         const _0x406234 = _0x45fcdf(_0xf1469d),
           _0x4f673b =
             _0x475c69 === _0x1bc680(0x2e1) ||
-            /åæŽ¨/[_0x1bc680(0x190)](_0x4ace81);
+            /反推/[_0x1bc680(0x190)](_0x4ace81);
         if (_0x475c69 === _0x1bc680(0x44f))
           return _0x4ace81
-            ? _0x406234 + "ï¼ˆ" + _0x4ace81 + "ï¼‰"
+            ? _0x406234 + "（" + _0x4ace81 + "）"
             : _0x406234 + _0x1bc680(0x1ee);
         if (_0x4f673b)
           return _0x4ace81
-            ? _0x406234 + "ï¼ˆ" + _0x4ace81 + "ï¼‰"
+            ? _0x406234 + "（" + _0x4ace81 + "）"
             : _0x406234 + _0x1bc680(0x28a);
         return _0x4ace81
-          ? _0x406234 + "ï¼ˆ" + _0x4ace81 + "ï¼‰"
+          ? _0x406234 + "（" + _0x4ace81 + "）"
           : _0x406234 + _0x1bc680(0x29b);
       }
       if (_0xb80d49 <= 0x0) return _0x1bc680(0x1a4);
@@ -4359,7 +4359,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         ]((_0xc9edeb) => {
           const _0x40a365 = a0_0x2779,
             _0x5a07b6 = _0xc9edeb[_0x40a365(0x3b8)]?.[_0x40a365(0x3db)]() || "";
-          return /(?:åº“å­˜|åº«å­˜|Stock|Quantity|Qty)\s*[:ï¼š]?\s*[0-9,]+\s*\/\s*[0-9,]+/i[
+          return /(?:库存|庫存|Stock|Quantity|Qty)\s*[:：]?\s*[0-9,]+\s*\/\s*[0-9,]+/i[
             _0x40a365(0x190)
           ](_0x5a07b6);
         })[_0x35aa7b(0x40a)];
@@ -4373,13 +4373,13 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       for (const _0xcb271a of _0x4714ed) {
         const _0x259d98 = _0xcb271a[_0x504e0c(0x2f0)];
         if (
-          _0x47b2cc[_0x504e0c(0x34d)]("å‰å¾€") &&
+          _0x47b2cc[_0x504e0c(0x34d)]("前往") &&
           _0x47b2cc[_0x504e0c(0x34d)](_0x259d98)
         ) {
-          const _0x50ee7c = _0x47b2cc[_0x504e0c(0x288)]("å‰å¾€"),
+          const _0x50ee7c = _0x47b2cc[_0x504e0c(0x288)]("前往"),
             _0x4a591f = _0x47b2cc[_0x504e0c(0x19f)](_0x50ee7c, _0x50ee7c + 0xf);
           if (_0x4a591f[_0x504e0c(0x34d)](_0x259d98)) {
-            const _0x8ae2db = /é¢„è®¡|æŠµè¾¾|åˆ°è¾¾|èˆªè¡Œ|é€”ä¸­|å‰©ä½™|è¿˜éœ€/[
+            const _0x8ae2db = /预计|抵达|到达|航行|途中|剩余|还需/[
               _0x504e0c(0x190)
             ](_0x47b2cc);
             if (_0x8ae2db) {
@@ -4394,20 +4394,20 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         for (const _0x40600c of _0x4714ed) {
           const _0x3d1ef6 = _0x40600c[_0x504e0c(0x2f0)];
           if (
-            _0x47b2cc[_0x504e0c(0x34d)]("ä»Ž") &&
+            _0x47b2cc[_0x504e0c(0x34d)]("从") &&
             _0x47b2cc[_0x504e0c(0x34d)](_0x3d1ef6) &&
-            (_0x47b2cc[_0x504e0c(0x34d)]("è¿”èˆª") ||
-              _0x47b2cc[_0x504e0c(0x34d)]("è¿”å›ž"))
+            (_0x47b2cc[_0x504e0c(0x34d)]("返航") ||
+              _0x47b2cc[_0x504e0c(0x34d)]("返回"))
           ) {
-            const _0x1363fa = _0x47b2cc[_0x504e0c(0x288)]("ä»Ž"),
+            const _0x1363fa = _0x47b2cc[_0x504e0c(0x288)]("从"),
               _0x593d47 = _0x47b2cc[_0x504e0c(0x19f)](
                 _0x1363fa,
                 _0x1363fa + 0x3c,
               );
             if (
               _0x593d47[_0x504e0c(0x34d)](_0x3d1ef6) &&
-              (_0x593d47[_0x504e0c(0x34d)]("è¿”èˆª") ||
-                _0x593d47[_0x504e0c(0x34d)]("è¿”å›ž"))
+              (_0x593d47[_0x504e0c(0x34d)]("返航") ||
+                _0x593d47[_0x504e0c(0x34d)]("返回"))
             ) {
               ((_0x4819ec[_0x504e0c(0x173)] = _0x3d1ef6),
                 (_0x4819ec[_0x504e0c(0x30d)] = _0x504e0c(0x2c8)));
@@ -4419,13 +4419,13 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           for (const _0x30e537 of _0x4714ed) {
             const _0x427983 = _0x30e537[_0x504e0c(0x2f0)];
             if (
-              (_0x47b2cc[_0x504e0c(0x34d)]("è¿”èˆª") ||
-                _0x47b2cc[_0x504e0c(0x34d)]("è¿”å›ž")) &&
+              (_0x47b2cc[_0x504e0c(0x34d)]("返航") ||
+                _0x47b2cc[_0x504e0c(0x34d)]("返回")) &&
               _0x47b2cc[_0x504e0c(0x34d)](_0x427983)
             ) {
-              const _0x16044a = _0x47b2cc[_0x504e0c(0x34d)]("è¿”èˆª")
-                  ? "è¿”èˆª"
-                  : "è¿”å›ž",
+              const _0x16044a = _0x47b2cc[_0x504e0c(0x34d)]("返航")
+                  ? "返航"
+                  : "返回",
                 _0x3cbf38 = _0x47b2cc[_0x504e0c(0x288)](_0x16044a),
                 _0x379c49 = _0x47b2cc[_0x504e0c(0x19f)](
                   Math[_0x504e0c(0x238)](0x0, _0x3cbf38 - 0x28),
@@ -4439,9 +4439,9 @@ function a0_0x2779(_0x18d145, _0x53287d) {
             }
           }
         !_0x4819ec[_0x504e0c(0x30d)] &&
-          (_0x47b2cc[_0x504e0c(0x34d)]("è¿”èˆª") ||
-            _0x47b2cc[_0x504e0c(0x34d)]("è¿”å›ž")) &&
-          !_0x47b2cc[_0x504e0c(0x34d)]("å‰å¾€") &&
+          (_0x47b2cc[_0x504e0c(0x34d)]("返航") ||
+            _0x47b2cc[_0x504e0c(0x34d)]("返回")) &&
+          !_0x47b2cc[_0x504e0c(0x34d)]("前往") &&
           ((_0x4819ec[_0x504e0c(0x173)] = _0xc802f9(_0x47b2cc)),
           (_0x4819ec[_0x504e0c(0x30d)] = _0x504e0c(0x2c8)));
       }
@@ -4449,7 +4449,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         const _0x5e3519 = _0x3db0ce(_0x47b2cc),
           _0x3cb8f9 = _0x108ec2();
         if (_0x5e3519 && _0x3cb8f9 >= 0x2) {
-          const _0x56fdb1 = /é¢„è®¡|å‰å¾€|é€”ä¸­|è¿”èˆª|è¿”å›ž|é¢„è®¡æŠµè¾¾|é¢„è®¡åˆ°è¾¾/[
+          const _0x56fdb1 = /预计|前往|途中|返航|返回|预计抵达|预计到达/[
             _0x504e0c(0x190)
           ](_0x47b2cc);
           !_0x56fdb1 &&
@@ -4467,7 +4467,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       if (_0x4819ec[_0x504e0c(0x30d)] === _0x504e0c(0x4d1)) {
         let _0x35c225 = null;
         const _0x190842 = _0x47b2cc[_0x504e0c(0x1d8)](
-          /(?:é¢„è®¡æŠµè¾¾|é¢„è®¡åˆ°è¾¾).*?(\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/,
+          /(?:预计抵达|预计到达).*?(\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/,
         );
         _0x190842 && (_0x35c225 = _0x190842[0x1]);
         if (!_0x35c225) {
@@ -4495,9 +4495,9 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           _0x1347d3
             ? (_0x4819ec[_0x504e0c(0x138)] =
                 _0x1347d3[0x1] +
-                "æœˆ" +
+                "月" +
                 _0x1347d3[0x2] +
-                "æ—¥\x20" +
+                "日\x20" +
                 _0x1347d3[0x3] +
                 ":" +
                 _0x1347d3[0x4])
@@ -4584,7 +4584,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
           "0",
         );
       return (
-        _0x4fefb2 + "æœˆ" + _0x11ca17 + "æ—¥\x20" + _0x2fa252 + ":" + _0x325141
+        _0x4fefb2 + "月" + _0x11ca17 + "日\x20" + _0x2fa252 + ":" + _0x325141
       );
     }
     function _0x3779bc(_0x169cd2, _0x28f1be) {
@@ -4790,7 +4790,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
                 _0x31942e[_0x461fa2(0x173)] ||
                 _0x461fa2(0x33c),
               _0x461fa2(0x19b),
-              _0x31942e[_0x461fa2(0x138)] || "æ— ",
+              _0x31942e[_0x461fa2(0x138)] || "无",
             ),
             _0x5f3d29()),
           _0x5ad52c());
@@ -5056,7 +5056,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
             ? _0x1c7c17(_0x52684e(0x3da))
             : _0x1c7c17(_0x52684e(0x194)),
           _0xdebc1f = _0x399387[_0x52684e(0x4e2)]
-            ? "ï½œ" + _0x399387[_0x52684e(0x4e2)]
+            ? "｜" + _0x399387[_0x52684e(0x4e2)]
             : "",
           _0x59e990 = _0x5c7ee7 ? "" : _0x1c7c17(_0x52684e(0x3dc));
         return (
@@ -5363,7 +5363,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         _0x32abaa(
           _0x1c7c17(_0x26ab2a(0x3c8), { n: _0x48a4f0[_0x26ab2a(0x40a)] }),
         ) +
-        "ï¼Œ" +
+        "，" +
         _0x32abaa(_0x1c7c17(_0x26ab2a(0x32b), { time: _0x244769(_0xc792ff) })) +
         (() => {
           const _0x152ac0 = a0_0x2779,
@@ -5442,15 +5442,15 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         _0x32abaa(_0x2024de(_0x3031b5)) +
         _0x6e0c0f(0x1ab) +
         _0x32abaa(_0x1c7c17(_0x6e0c0f(0x3e5))) +
-        "ï¼š" +
+        "：" +
         _0x32abaa(_0x354604[_0x6e0c0f(0x45c)] || _0x6e0c0f(0x18a)) +
         "\u3000" +
         _0x32abaa(_0x1c7c17(_0x6e0c0f(0x26a))) +
-        "ï¼š" +
+        "：" +
         _0x32abaa(_0x354604[_0x6e0c0f(0x26a)] || "-") +
         "\u3000" +
         _0x32abaa(_0x1c7c17(_0x6e0c0f(0x363))) +
-        "ï¼š" +
+        "：" +
         _0x32abaa(_0x1a805d(_0x354604)) +
         _0x32abaa(_0x3087e5) +
         _0x6e0c0f(0x29c) +
@@ -5567,11 +5567,11 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         _0x32abaa(_0x1c7c17(_0x1cb210(0x25e))) +
         _0x1cb210(0x4d9) +
         _0x32abaa(_0x1c7c17(_0x1cb210(0x177))) +
-        "ï¼š" +
+        "：" +
         _0x32abaa(_0xc50229()) +
         _0x1cb210(0x12d) +
         _0x32abaa(_0x1c7c17(_0x1cb210(0x30d))) +
-        "ï¼š" +
+        "：" +
         (_0x399387["ok"] === !![]
           ? _0x32abaa(_0x1c7c17(_0x1cb210(0x174)))
           : _0x399387["ok"] === ![]
@@ -5579,19 +5579,19 @@ function a0_0x2779(_0x18d145, _0x53287d) {
             : _0x32abaa(_0x1c7c17(_0x1cb210(0x488)))) +
         _0x1cb210(0x4d9) +
         _0x32abaa(_0x1c7c17(_0x1cb210(0x373))) +
-        "ï¼š" +
+        "：" +
         (_0x399387[_0x1cb210(0x331)]
           ? _0x32abaa(new Date(_0x399387[_0x1cb210(0x331)])[_0x1cb210(0x467)]())
           : "-") +
         _0x1cb210(0x4d9) +
         _0x32abaa(_0x1c7c17(_0x1cb210(0x269))) +
-        "ï¼š" +
+        "：" +
         (_0x399387[_0x1cb210(0x2ee)]
           ? _0x32abaa(new Date(_0x399387[_0x1cb210(0x2ee)])[_0x1cb210(0x467)]())
           : "-") +
         _0x1cb210(0x20e) +
         _0x32abaa(_0x1c7c17(_0x1cb210(0x259))) +
-        "ï¼š" +
+        "：" +
         _0x32abaa(_0x399387[_0x1cb210(0x4e2)] || "-") +
         _0x1cb210(0x339) +
         _0x32abaa(_0x1c7c17(_0x1cb210(0x367))) +
@@ -5815,7 +5815,7 @@ function a0_0x2779(_0x18d145, _0x53287d) {
               return ![];
             if (_0x2cf111[_0x55d757(0x402)][_0x55d757(0x40a)] > 0x1f4)
               return ![];
-            return /å‡ºç‡Ÿ|åˆ†èŽŠ|çµ±è¨ˆ|æˆ‘çš„éšŠä¼|äº¤æˆ°|é¦–é |å‡ºæµ·|å¸‚å ´|äº¤æ˜“|Discord|Home|Market|Trade|Warehouse|Adventure|Profile|Stats|Crew|Battle/[
+            return /出營|分莊|統計|我的隊伍|交戰|首頁|出海|市場|交易|Discord|Home|Market|Trade|Warehouse|Adventure|Profile|Stats|Crew|Battle/[
               _0x55d757(0x190)
             ](_0x2cf111[_0x55d757(0x402)]);
           })
@@ -6105,15 +6105,15 @@ function a0_0x2779(_0x18d145, _0x53287d) {
             _0x32abaa(_0x3d32a5) +
             _0x4f8426(0x227) +
             _0x32abaa(_0x1c7c17(_0x4f8426(0x3e5))) +
-            "ï¼š" +
+            "：" +
             _0x32abaa(_0x2d82e3[_0x4f8426(0x45c)] || _0x4f8426(0x18a)) +
             "\u3000" +
             _0x32abaa(_0x1c7c17(_0x4f8426(0x26a))) +
-            "ï¼š" +
+            "：" +
             _0x32abaa(_0x2d82e3[_0x4f8426(0x26a)] || "-") +
             "\u3000" +
             _0x32abaa(_0x1c7c17(_0x4f8426(0x301))) +
-            "ï¼š" +
+            "：" +
             _0x32abaa(_0x1a805d(_0x2d82e3)) +
             _0x4f8426(0x295)
           );
@@ -6155,11 +6155,11 @@ function a0_0x2779(_0x18d145, _0x53287d) {
       )[_0x1694ef(0x3db)]();
       if (!_0x210c28 || _0x210c28[_0x1694ef(0x40a)] > 0x14) return ![];
       return (
-        _0x210c28 === "å‡ºç™¼" ||
-        _0x210c28 === "å‡ºå‘" ||
+        _0x210c28 === "出發" ||
+        _0x210c28 === "出发" ||
         /^(Depart|Set Sail|Sail|Go)$/i[_0x1694ef(0x190)](_0x210c28) ||
-        _0x210c28[_0x1694ef(0x34d)]("å‡ºç™¼") ||
-        _0x210c28[_0x1694ef(0x34d)]("å‡ºå‘") ||
+        _0x210c28[_0x1694ef(0x34d)]("出發") ||
+        _0x210c28[_0x1694ef(0x34d)]("出发") ||
         /Depart|Set Sail/i[_0x1694ef(0x190)](_0x210c28)
       );
     }
@@ -6211,12 +6211,12 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         if (!_0xd3189d) continue;
         if (_0x4ee2f4(_0x7b4f64) > 0x2) continue;
         if (
-          _0x7b4f64[_0x5973b4(0x34d)]("é¦–é ") ||
-          _0x7b4f64[_0x5973b4(0x34d)]("å€‰åº«") ||
-          _0x7b4f64[_0x5973b4(0x34d)]("å¸‚å ´") ||
+          _0x7b4f64[_0x5973b4(0x34d)]("首頁") ||
+          _0x7b4f64[_0x5973b4(0x34d)]("倉庫") ||
+          _0x7b4f64[_0x5973b4(0x34d)]("市場") ||
           _0x7b4f64[_0x5973b4(0x34d)](_0x5973b4(0x468)) ||
-          _0x7b4f64[_0x5973b4(0x34d)]("è·æ¥­") ||
-          _0x7b4f64[_0x5973b4(0x34d)]("æŽ’è¡Œ") ||
+          _0x7b4f64[_0x5973b4(0x34d)]("職業") ||
+          _0x7b4f64[_0x5973b4(0x34d)]("排行") ||
           _0x7b4f64[_0x5973b4(0x34d)](_0x5973b4(0x2d2)) ||
           _0x7b4f64[_0x5973b4(0x34d)](_0x5973b4(0x4b0)) ||
           _0x7b4f64[_0x5973b4(0x34d)](_0x5973b4(0x48a)) ||
@@ -6394,12 +6394,12 @@ function a0_0x2779(_0x18d145, _0x53287d) {
         _0x1c0026[_0x574c7d(0x3b8)] || _0x1c0026[_0x574c7d(0x44c)] || "",
       )[_0x574c7d(0x3db)]();
       return (
-        _0x2d2e01[_0x574c7d(0x34d)]("è¿”èˆª") ||
-        _0x2d2e01[_0x574c7d(0x34d)]("è¿”å›ž") ||
-        _0x2d2e01[_0x574c7d(0x34d)]("é›¢æ¸¯") ||
-        _0x2d2e01[_0x574c7d(0x34d)]("ç¦»æ¸¯") ||
-        _0x2d2e01[_0x574c7d(0x34d)]("å‡ºç™¼") ||
-        _0x2d2e01[_0x574c7d(0x34d)]("å‡ºå‘") ||
+        _0x2d2e01[_0x574c7d(0x34d)]("返航") ||
+        _0x2d2e01[_0x574c7d(0x34d)]("返回") ||
+        _0x2d2e01[_0x574c7d(0x34d)]("離港") ||
+        _0x2d2e01[_0x574c7d(0x34d)]("离港") ||
+        _0x2d2e01[_0x574c7d(0x34d)]("出發") ||
+        _0x2d2e01[_0x574c7d(0x34d)]("出发") ||
         /Return|Back|Leave|Depart|Set Sail/i[_0x574c7d(0x190)](_0x2d2e01)
       );
     }
